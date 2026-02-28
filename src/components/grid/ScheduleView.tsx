@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { useScheduleStore } from "../../store/scheduleStore";
+import { useTeacherStore } from "../../store/teacherStore";
+import { useSubjectStore } from "../../store/subjectStore";
+import { useClassStore } from "../../store/classStore";
+import { useRoomStore } from "../../store/roomStore";
+import { useTimeSlotStore } from "../../store/timeSlotStore";
 import type { Schedule } from "../../types";
+import { ScheduleGrid } from "./ScheduleGrid";
 
 export function ScheduleView() {
   const {
@@ -22,9 +28,27 @@ export function ScheduleView() {
   const [newScheduleName, setNewScheduleName] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
+  const { fetchTeachers } = useTeacherStore();
+  const { fetchSubjects } = useSubjectStore();
+  const { fetchClasses } = useClassStore();
+  const { fetchRooms } = useRoomStore();
+  const { fetchTimeSlots } = useTimeSlotStore();
+
   useEffect(() => {
     fetchSchedules();
-  }, [fetchSchedules]);
+    fetchTeachers();
+    fetchSubjects();
+    fetchClasses();
+    fetchRooms();
+    fetchTimeSlots();
+  }, [
+    fetchSchedules,
+    fetchTeachers,
+    fetchSubjects,
+    fetchClasses,
+    fetchRooms,
+    fetchTimeSlots,
+  ]);
 
   const selectedSchedule = schedules.find(
     (s) => s.id === selectedScheduleId,
@@ -224,7 +248,7 @@ export function ScheduleView() {
             </div>
           )}
 
-          {/* Eintraege-Uebersicht */}
+          {/* Stundenplan-Grid */}
           {loading ? (
             <div className="text-gray-500">Lade Eintraege...</div>
           ) : currentEntries.length === 0 ? (
@@ -236,79 +260,10 @@ export function ScheduleView() {
               </p>
             </div>
           ) : (
-            <div className="bg-white rounded-lg shadow p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="font-medium text-gray-800">
-                  Eintraege ({currentEntries.length})
-                </h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-2 px-2 text-gray-600 font-medium">
-                        Zeitslot
-                      </th>
-                      <th className="text-left py-2 px-2 text-gray-600 font-medium">
-                        Klasse
-                      </th>
-                      <th className="text-left py-2 px-2 text-gray-600 font-medium">
-                        Fach
-                      </th>
-                      <th className="text-left py-2 px-2 text-gray-600 font-medium">
-                        Lehrkraft
-                      </th>
-                      <th className="text-left py-2 px-2 text-gray-600 font-medium">
-                        Raum
-                      </th>
-                      <th className="text-left py-2 px-2 text-gray-600 font-medium">
-                        Score
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {currentEntries.map((entry) => {
-                      let score = "-";
-                      try {
-                        const log = JSON.parse(entry.decisionLog);
-                        if (log.total_score !== undefined) {
-                          score = `${(log.total_score * 100).toFixed(1)}%`;
-                        }
-                      } catch {
-                        // Ignorieren
-                      }
-                      return (
-                        <tr
-                          key={entry.id}
-                          className="border-b border-gray-100 hover:bg-gray-50"
-                        >
-                          <td className="py-2 px-2 text-gray-700">
-                            {entry.timeSlotId}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            {entry.classId}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            {entry.subjectId}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            {entry.teacherId}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">
-                            {entry.roomId}
-                          </td>
-                          <td className="py-2 px-2 text-gray-700">{score}</td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-xs text-gray-400 mt-3">
-                Detaillierte Stundenplan-Ansicht (Drag & Drop Grid) wird in
-                Phase 4 implementiert.
-              </p>
-            </div>
+            <ScheduleGrid
+              scheduleId={selectedScheduleId!}
+              isDraftSchedule={selectedSchedule.status === "draft"}
+            />
           )}
         </div>
       )}
