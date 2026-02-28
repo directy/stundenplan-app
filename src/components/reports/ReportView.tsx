@@ -1,7 +1,13 @@
 import { useEffect, useState } from "react";
 import { useReportStore } from "../../store/reportStore";
 import { useScheduleStore } from "../../store/scheduleStore";
+import { useTeacherStore } from "../../store/teacherStore";
+import { useSubjectStore } from "../../store/subjectStore";
 import { CONSTRAINT_LABELS } from "../../utils/constraintLabels";
+import { ScoreHeatmap } from "./ScoreHeatmap";
+import { RoomUtilization } from "./RoomUtilization";
+import { SubjectCoverage } from "./SubjectCoverage";
+import { WorkloadFairness } from "./WorkloadFairness";
 
 const DAY_NAMES = ["", "Mo", "Di", "Mi", "Do", "Fr"];
 
@@ -20,13 +26,17 @@ function barColor(score: number): string {
 export function ReportView() {
   const { report, loading, error, fetchReport } = useReportStore();
   const { schedules, fetchSchedules } = useScheduleStore();
+  const { teachers, fetchTeachers } = useTeacherStore();
+  const { subjects, fetchSubjects } = useSubjectStore();
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
     null,
   );
 
   useEffect(() => {
     fetchSchedules();
-  }, [fetchSchedules]);
+    fetchTeachers();
+    fetchSubjects();
+  }, [fetchSchedules, fetchTeachers, fetchSubjects]);
 
   // Auto-select active schedule
   useEffect(() => {
@@ -220,6 +230,32 @@ export function ReportView() {
                 </tbody>
               </table>
             </div>
+          )}
+
+          {/* Workload-Fairness */}
+          {report.teacherWorkloads.length > 0 && (
+            <WorkloadFairness
+              workloads={report.teacherWorkloads}
+              teachers={teachers}
+            />
+          )}
+
+          {/* Score-Heatmap */}
+          {report.entries.length > 0 && (
+            <ScoreHeatmap entries={report.entries} />
+          )}
+
+          {/* Raumnutzung */}
+          {report.entries.length > 0 && (
+            <RoomUtilization entries={report.entries} />
+          )}
+
+          {/* Fach-Abdeckung */}
+          {report.entries.length > 0 && (
+            <SubjectCoverage
+              entries={report.entries}
+              subjects={subjects}
+            />
           )}
 
           {/* Problemstellen */}

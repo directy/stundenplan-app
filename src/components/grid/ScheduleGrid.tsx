@@ -22,28 +22,34 @@ import { useSubjectStore } from "../../store/subjectStore";
 import { useClassStore } from "../../store/classStore";
 import { useRoomStore } from "../../store/roomStore";
 import { useTimeSlotStore } from "../../store/timeSlotStore";
+import { save } from "@tauri-apps/plugin-dialog";
+import { writeTextFile } from "@tauri-apps/plugin-fs";
 import { GridCell } from "./GridCell";
 import { EntryCard } from "./EntryCard";
 import { EntryDetailModal } from "./EntryDetailModal";
 import { ViewSelector } from "./ViewSelector";
+import { generateScheduleCsv } from "../../utils/exportCsv";
 
 const DAY_NAMES = ["Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag"];
 
 interface ScheduleGridProps {
   scheduleId: number;
   isDraftSchedule: boolean;
+  scheduleName: string;
 }
 
 export function ScheduleGrid({
   scheduleId,
   isDraftSchedule,
+  scheduleName,
 }: ScheduleGridProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("class");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [activeEntry, setActiveEntry] = useState<GridEntry | null>(null);
   const [detailEntry, setDetailEntry] = useState<GridEntry | null>(null);
 
-  const { currentEntries, updateScheduleEntry } = useScheduleStore();
+  const { currentEntries, updateScheduleEntry, swapScheduleEntries } =
+    useScheduleStore();
   const { teachers } = useTeacherStore();
   const { subjects } = useSubjectStore();
   const { classes } = useClassStore();
@@ -83,9 +89,14 @@ export function ScheduleGrid({
       const targetCellId = over.data.current?.cellId as string | undefined;
       if (!draggedEntry || !targetCellId) return;
 
-      // Zielzelle besetzt -> abbrechen
       const targetOccupant = gridData.get(targetCellId);
-      if (targetOccupant !== null) return;
+
+      // Zielzelle besetzt -> Swap
+      if (targetOccupant) {
+        if (targetOccupant.id === draggedEntry.id) return;
+        await swapScheduleEntries(draggedEntry.id, targetOccupant.id);
+        return;
+      }
 
       // TimeSlot-ID fuer Zielzelle ermitteln
       const { dayOfWeek, period } = parseCellKey(targetCellId);
@@ -104,7 +115,7 @@ export function ScheduleGrid({
         decisionLog: draggedEntry.decisionLog,
       });
     },
-    [gridData, timeSlots, updateScheduleEntry, scheduleId],
+    [gridData, timeSlots, updateScheduleEntry, swapScheduleEntries, scheduleId],
   );
 
   const handleEntryClick = useCallback(
@@ -115,6 +126,30 @@ export function ScheduleGrid({
     },
     [activeEntry],
   );
+
+  const selectedName =
+    viewMode === "class"
+      ? classes.find((c) => c.id === selectedId)?.name ?? ""
+      : teachers.find((t) => t.id === selectedId)?.name ?? "";
+
+  const handlePrint = useCallback(() => {
+    window.print();
+  }, []);
+
+  const handleCsvExport = useCallback(async () => {
+    const gridEntries: GridEntry[] = [];
+    for (const entry of gridData.values()) {
+      if (entry) gridEntries.push(entry);
+    }
+    const csv = generateScheduleCsv(gridEntries, timeSlots);
+    const filePath = await save({
+      title: "Stundenplan als CSV speichern",
+      defaultPath: `stundenplan-${scheduleName.replace(/\s+/g, "-")}.csv`,
+      filters: [{ name: "CSV-Dateien", extensions: ["csv"] }],
+    });
+    if (!filePath) return;
+    await writeTextFile(filePath, csv);
+  }, [gridData, timeSlots, scheduleName]);
 
   if (selectedId === null) {
     return (
@@ -140,14 +175,42 @@ export function ScheduleGrid({
 
   return (
     <div>
-      <ViewSelector
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        selectedId={selectedId}
-        onSelectedIdChange={setSelectedId}
-        classes={classes}
-        teachers={teachers}
-      />
+      {/* Print-Header (nur beim Drucken sichtbar) */}
+      <div className="hidden print:block mb-4">
+        <h1 className="text-xl font-bold">{scheduleName}</h1>
+        <p className="text-sm text-gray-600">
+          {viewMode === "class" ? "Klasse" : "Lehrkraft"}: {selectedName}
+        </p>
+        <p className="text-xs text-gray-400">
+          Gedruckt am {new Date().toLocaleDateString("de-DE")}
+        </p>
+      </div>
+
+      {/* Steuerung (beim Drucken ausgeblendet) */}
+      <div className="print:hidden flex items-end justify-between gap-4 mb-2">
+        <ViewSelector
+          viewMode={viewMode}
+          onViewModeChange={setViewMode}
+          selectedId={selectedId}
+          onSelectedIdChange={setSelectedId}
+          classes={classes}
+          teachers={teachers}
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={handlePrint}
+            className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            Drucken
+          </button>
+          <button
+            onClick={handleCsvExport}
+            className="px-3 py-1.5 text-sm bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+          >
+            CSV
+          </button>
+        </div>
+      </div>
 
       <DndContext
         sensors={sensors}

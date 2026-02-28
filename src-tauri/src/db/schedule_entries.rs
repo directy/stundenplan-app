@@ -94,6 +94,35 @@ pub fn update_schedule_entry(conn: &Connection, id: i64, entry: &NewScheduleEntr
     get_schedule_entry(conn, id)
 }
 
+pub fn swap_schedule_entries(conn: &Connection, id_a: i64, id_b: i64) -> Result<(ScheduleEntry, ScheduleEntry), AppError> {
+    let slot_a: i64 = conn.query_row(
+        "SELECT time_slot_id FROM schedule_entries WHERE id = ?1",
+        [id_a],
+        |row| row.get(0),
+    ).map_err(|_| AppError::NotFound(format!("Eintrag mit ID {} nicht gefunden", id_a)))?;
+
+    let slot_b: i64 = conn.query_row(
+        "SELECT time_slot_id FROM schedule_entries WHERE id = ?1",
+        [id_b],
+        |row| row.get(0),
+    ).map_err(|_| AppError::NotFound(format!("Eintrag mit ID {} nicht gefunden", id_b)))?;
+
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "UPDATE schedule_entries SET time_slot_id = ?1 WHERE id = ?2",
+        params![slot_b, id_a],
+    )?;
+    tx.execute(
+        "UPDATE schedule_entries SET time_slot_id = ?1 WHERE id = ?2",
+        params![slot_a, id_b],
+    )?;
+    tx.commit()?;
+
+    let entry_a = get_schedule_entry(conn, id_a)?;
+    let entry_b = get_schedule_entry(conn, id_b)?;
+    Ok((entry_a, entry_b))
+}
+
 pub fn delete_schedule_entry(conn: &Connection, id: i64) -> Result<(), AppError> {
     let rows = conn.execute("DELETE FROM schedule_entries WHERE id = ?1", [id])?;
     if rows == 0 {

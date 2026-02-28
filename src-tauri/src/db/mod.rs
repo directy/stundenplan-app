@@ -15,3 +15,4 @@ pub mod substitutions;
 pub mod holidays;
 pub mod absences;
 pub mod reports;
+pub mod seed;

@@ -87,6 +87,16 @@ pub async fn delete_schedule_entry(
 }
 
 #[tauri::command]
+pub async fn swap_schedule_entries(
+    db: State<'_, Mutex<Database>>,
+    id_a: i64,
+    id_b: i64,
+) -> Result<(ScheduleEntry, ScheduleEntry), String> {
+    let db = db.lock().map_err(|e| format!("Lock-Fehler: {}", e))?;
+    crate::db::schedule_entries::swap_schedule_entries(&db.conn, id_a, id_b).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
 pub async fn generate_schedule(
     db: State<'_, Mutex<Database>>,
     schedule_id: i64,

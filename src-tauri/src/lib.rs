@@ -75,12 +75,15 @@ pub fn run() {
             commands::schedule::get_schedule_entries,
             commands::schedule::update_schedule_entry,
             commands::schedule::delete_schedule_entry,
+            commands::schedule::swap_schedule_entries,
             commands::schedule::generate_schedule,
             commands::schedule::optimize_schedule,
             // Constraints
             commands::constraint::get_constraint_rules,
             commands::constraint::create_constraint_rule,
             commands::constraint::update_constraint_rule,
+            commands::constraint::delete_constraint_rule,
+            commands::constraint::update_constraint_order,
             commands::constraint::seed_default_constraints,
             // Preferences
             commands::preference::create_preference,
@@ -106,6 +109,8 @@ pub fn run() {
             commands::absence::delete_absence,
             // Reports
             commands::report::get_schedule_report,
+            // Seed
+            commands::seed::seed_example_data,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Anwendung");

@@ -3,11 +3,13 @@ import { open } from "@tauri-apps/plugin-dialog";
 import { readTextFile } from "@tauri-apps/plugin-fs";
 import { useHolidayStore } from "../../store/holidayStore";
 import type { HolidayImportData } from "../../types";
+import sachsen2026 from "../../data/sachsen-2026.json";
 
 export function HolidayView() {
   const { holidays, loading, error, fetchHolidays, importHolidays, deleteAllHolidays } =
     useHolidayStore();
   const [importError, setImportError] = useState<string | null>(null);
+  const [quickImporting, setQuickImporting] = useState(false);
 
   useEffect(() => {
     fetchHolidays();
@@ -61,11 +63,28 @@ export function HolidayView() {
         <h2 className="text-lg font-semibold text-gray-800">Ferienplan</h2>
         <div className="flex gap-2">
           <button
+            onClick={async () => {
+              setQuickImporting(true);
+              setImportError(null);
+              try {
+                await importHolidays(sachsen2026 as HolidayImportData);
+              } catch (err) {
+                setImportError(String(err));
+              } finally {
+                setQuickImporting(false);
+              }
+            }}
+            disabled={loading || quickImporting}
+            className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+          >
+            {quickImporting ? "Lade..." : "Sachsen 2025/2026"}
+          </button>
+          <button
             onClick={handleImport}
             disabled={loading}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            Ferien importieren
+            JSON importieren
           </button>
           {holidays.length > 0 && (
             <button

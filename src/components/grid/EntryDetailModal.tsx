@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import type { GridEntry } from "../../hooks/useScheduleGrid";
 import type { SubjectColorMap } from "../../hooks/useSubjectColors";
 import { CONSTRAINT_LABELS } from "../../utils/constraintLabels";
@@ -21,6 +22,16 @@ export function EntryDetailModal({
   colorMap,
   onClose,
 }: EntryDetailModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", handler);
+    dialogRef.current?.focus();
+    return () => document.removeEventListener("keydown", handler);
+  }, [onClose]);
   let parsedLog: DecisionLog = {};
   try {
     parsedLog = JSON.parse(entry.decisionLog);
@@ -36,7 +47,12 @@ export function EntryDetailModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Stundenplan-Eintrag Details"
+        tabIndex={-1}
+        className="bg-white rounded-xl shadow-xl max-w-lg w-full mx-4 p-6 outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-3 mb-4 pb-3 border-b border-gray-200">

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Teacher, NewTeacher, Subject } from "../types";
+import { useToastStore } from "./toastStore";
 
 interface TeacherState {
   teachers: Teacher[];
@@ -34,6 +35,7 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   createTeacher: async (teacher: NewTeacher) => {
     const created = await invoke<Teacher>("create_teacher", { teacher });
     set({ teachers: [...get().teachers, created] });
+    useToastStore.getState().addToast("success", `Lehrkraft "${created.name}" erstellt`);
     return created;
   },
 
@@ -42,12 +44,14 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
     set({
       teachers: get().teachers.map((t) => (t.id === id ? updated : t)),
     });
+    useToastStore.getState().addToast("success", "Lehrkraft aktualisiert");
     return updated;
   },
 
   deleteTeacher: async (id: number) => {
     await invoke("delete_teacher", { id });
     set({ teachers: get().teachers.filter((t) => t.id !== id) });
+    useToastStore.getState().addToast("success", "Lehrkraft geloescht");
   },
 
   getTeacherSubjects: async (teacherId: number) => {

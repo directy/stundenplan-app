@@ -32,7 +32,7 @@ export function GridCell({
       className={`
         min-h-[60px] p-1 border border-gray-200 rounded transition-colors
         ${isOver && !entry ? "bg-blue-50 border-blue-400" : ""}
-        ${isOver && entry ? "bg-red-50 border-red-300" : ""}
+        ${isOver && entry ? "bg-amber-50 border-amber-400" : ""}
         ${!isOver && !entry ? "bg-white" : ""}
       `}
     >

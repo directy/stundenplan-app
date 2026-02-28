@@ -8,6 +8,7 @@ import type {
   GenerationResult,
   OptimizationResult,
 } from "../types";
+import { useToastStore } from "./toastStore";
 
 interface ScheduleState {
   schedules: Schedule[];
@@ -30,6 +31,7 @@ interface ScheduleState {
     entry: NewScheduleEntry,
   ) => Promise<ScheduleEntry>;
   deleteScheduleEntry: (id: number) => Promise<void>;
+  swapScheduleEntries: (idA: number, idB: number) => Promise<void>;
   generateSchedule: (scheduleId: number) => Promise<GenerationResult>;
   optimizeSchedule: (scheduleId: number) => Promise<OptimizationResult>;
 }
@@ -57,6 +59,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   createSchedule: async (schedule: NewSchedule) => {
     const created = await invoke<Schedule>("create_schedule", { schedule });
     set({ schedules: [...get().schedules, created] });
+    useToastStore.getState().addToast("success", `Plan "${created.name}" erstellt`);
     return created;
   },
 
@@ -71,6 +74,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   deleteSchedule: async (id: number) => {
     await invoke("delete_schedule", { id });
     set({ schedules: get().schedules.filter((s) => s.id !== id) });
+    useToastStore.getState().addToast("success", "Plan geloescht");
   },
 
   fetchScheduleEntries: async (scheduleId: number) => {
@@ -114,6 +118,20 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     });
   },
 
+  swapScheduleEntries: async (idA: number, idB: number) => {
+    const [updatedA, updatedB] = await invoke<[ScheduleEntry, ScheduleEntry]>(
+      "swap_schedule_entries",
+      { idA, idB },
+    );
+    set({
+      currentEntries: get().currentEntries.map((e) => {
+        if (e.id === updatedA.id) return updatedA;
+        if (e.id === updatedB.id) return updatedB;
+        return e;
+      }),
+    });
+  },
+
   generateSchedule: async (scheduleId: number) => {
     set({ generating: true, error: null, generationResult: null });
     try {
@@ -123,9 +141,11 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       set({ generationResult: result, generating: false });
       // Eintraege nach Generierung neu laden
       await get().fetchScheduleEntries(scheduleId);
+      useToastStore.getState().addToast("success", `Generierung abgeschlossen – ${result.entriesCreated} Eintraege erstellt`);
       return result;
     } catch (error) {
       set({ error: String(error), generating: false });
+      useToastStore.getState().addToast("error", `Generierung fehlgeschlagen: ${String(error)}`);
       throw error;
     }
   },
@@ -139,9 +159,11 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       set({ optimizationResult: result, optimizing: false });
       // Eintraege nach Optimierung neu laden
       await get().fetchScheduleEntries(scheduleId);
+      useToastStore.getState().addToast("success", `Optimierung abgeschlossen – ${result.movesApplied} Moves angewendet`);
       return result;
     } catch (error) {
       set({ error: String(error), optimizing: false });
+      useToastStore.getState().addToast("error", `Optimierung fehlgeschlagen: ${String(error)}`);
       throw error;
     }
   },

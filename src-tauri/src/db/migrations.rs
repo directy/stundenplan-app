@@ -61,6 +61,27 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         )?;
     }
 
+    if current_version < 3 {
+        // Version 3: sort_order fuer Constraint-Regeln
+        let _ = conn.execute(
+            "ALTER TABLE constraint_rules ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0",
+            [],
+        );
+
+        // Bestehende Regeln bekommen aufsteigende sort_order
+        conn.execute_batch("
+            UPDATE constraint_rules SET sort_order = (
+                SELECT COUNT(*) FROM constraint_rules AS cr2
+                WHERE cr2.rowid < constraint_rules.rowid
+            );
+        ")?;
+
+        conn.execute(
+            "INSERT INTO schema_version (version) VALUES (?1)",
+            [3],
+        )?;
+    }
+
     Ok(())
 }
 
@@ -80,7 +101,7 @@ mod tests {
         let version: i64 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 2);
+        assert_eq!(version, 3);
     }
 
     #[test]
@@ -94,6 +115,6 @@ mod tests {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 2);
+        assert_eq!(count, 3);
     }
 }

@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Room, NewRoom } from "../types";
+import { useToastStore } from "./toastStore";
 
 interface RoomState {
   rooms: Room[];
@@ -31,6 +32,7 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   createRoom: async (room: NewRoom) => {
     const created = await invoke<Room>("create_room", { room });
     set({ rooms: [...get().rooms, created] });
+    useToastStore.getState().addToast("success", `Raum "${created.name}" erstellt`);
     return created;
   },
 
@@ -39,11 +41,13 @@ export const useRoomStore = create<RoomState>((set, get) => ({
     set({
       rooms: get().rooms.map((r) => (r.id === id ? updated : r)),
     });
+    useToastStore.getState().addToast("success", "Raum aktualisiert");
     return updated;
   },
 
   deleteRoom: async (id: number) => {
     await invoke("delete_room", { id });
     set({ rooms: get().rooms.filter((r) => r.id !== id) });
+    useToastStore.getState().addToast("success", "Raum geloescht");
   },
 }));

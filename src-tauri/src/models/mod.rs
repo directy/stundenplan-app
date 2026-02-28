@@ -10,6 +10,7 @@ pub mod preference;
 pub mod holiday;
 pub mod absence;
 pub mod report;
+pub mod seed;
 
 pub use teacher::*;
 pub use subject::*;
@@ -23,3 +24,4 @@ pub use preference::*;
 pub use holiday::*;
 pub use absence::*;
 pub use report::*;
+pub use seed::*;

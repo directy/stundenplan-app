@@ -14,7 +14,7 @@ export type {
   TabuSearchConfig,
   OptimizationResult,
 } from "./schedule";
-export type { ConstraintRule, NewConstraintRule } from "./constraint";
+export type { ConstraintRule, NewConstraintRule, ConstraintOrderUpdate } from "./constraint";
 export type {
   SubstitutionRecord,
   NewSubstitutionRecord,
@@ -40,3 +40,4 @@ export type {
   ReportEntry,
   TeacherWorkloadItem,
 } from "./report";
+export type { SeedResult, SchoolType } from "./seed";

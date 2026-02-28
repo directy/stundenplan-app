@@ -95,7 +95,8 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             description TEXT NOT NULL DEFAULT '',
             weight REAL NOT NULL DEFAULT 1.0,
             is_active INTEGER NOT NULL DEFAULT 1,
-            parameters TEXT NOT NULL DEFAULT '{}'
+            parameters TEXT NOT NULL DEFAULT '{}',
+            sort_order INTEGER NOT NULL DEFAULT 0
         );
 
         -- Vertretungshistorie mit Scoring-Details

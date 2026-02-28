@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { SchoolClass, NewSchoolClass } from "../types";
+import { useToastStore } from "./toastStore";
 
 interface ClassState {
   classes: SchoolClass[];
@@ -31,6 +32,7 @@ export const useClassStore = create<ClassState>((set, get) => ({
   createClass: async (schoolClass: NewSchoolClass) => {
     const created = await invoke<SchoolClass>("create_class", { class: schoolClass });
     set({ classes: [...get().classes, created] });
+    useToastStore.getState().addToast("success", `Klasse "${created.name}" erstellt`);
     return created;
   },
 
@@ -39,11 +41,13 @@ export const useClassStore = create<ClassState>((set, get) => ({
     set({
       classes: get().classes.map((c) => (c.id === id ? updated : c)),
     });
+    useToastStore.getState().addToast("success", "Klasse aktualisiert");
     return updated;
   },
 
   deleteClass: async (id: number) => {
     await invoke("delete_class", { id });
     set({ classes: get().classes.filter((c) => c.id !== id) });
+    useToastStore.getState().addToast("success", "Klasse geloescht");
   },
 }));

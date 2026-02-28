@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 import type { Subject, NewSubject } from "../types";
+import { useToastStore } from "./toastStore";
 
 interface SubjectState {
   subjects: Subject[];
@@ -31,6 +32,7 @@ export const useSubjectStore = create<SubjectState>((set, get) => ({
   createSubject: async (subject: NewSubject) => {
     const created = await invoke<Subject>("create_subject", { subject });
     set({ subjects: [...get().subjects, created] });
+    useToastStore.getState().addToast("success", `Fach "${created.name}" erstellt`);
     return created;
   },
 
@@ -39,11 +41,13 @@ export const useSubjectStore = create<SubjectState>((set, get) => ({
     set({
       subjects: get().subjects.map((s) => (s.id === id ? updated : s)),
     });
+    useToastStore.getState().addToast("success", "Fach aktualisiert");
     return updated;
   },
 
   deleteSubject: async (id: number) => {
     await invoke("delete_subject", { id });
     set({ subjects: get().subjects.filter((s) => s.id !== id) });
+    useToastStore.getState().addToast("success", "Fach geloescht");
   },
 }));

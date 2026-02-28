@@ -6,6 +6,7 @@ import { useClassStore } from "../../store/classStore";
 import { useRoomStore } from "../../store/roomStore";
 import { useTimeSlotStore } from "../../store/timeSlotStore";
 import type { Schedule } from "../../types";
+import { Spinner } from "../shared/Spinner";
 import { ScheduleGrid } from "./ScheduleGrid";
 
 export function ScheduleView() {
@@ -98,7 +99,7 @@ export function ScheduleView() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 print:hidden">
         <h2 className="text-lg font-semibold text-gray-800">Stundenplan</h2>
         <button
           onClick={() => setShowCreateForm(!showCreateForm)}
@@ -109,7 +110,7 @@ export function ScheduleView() {
       </div>
 
       {showCreateForm && (
-        <div className="bg-white rounded-lg shadow p-4 mb-4">
+        <div className="bg-white rounded-lg shadow p-4 mb-4 print:hidden">
           <div className="flex gap-2 mb-3">
             <input
               type="text"
@@ -157,7 +158,7 @@ export function ScheduleView() {
 
       {/* Plan-Auswahl */}
       {schedules.length > 0 && (
-        <div className="flex gap-2 mb-4 overflow-x-auto">
+        <div className="flex gap-2 mb-4 overflow-x-auto print:hidden">
           {schedules.map((schedule) => (
             <button
               key={schedule.id}
@@ -208,7 +209,7 @@ export function ScheduleView() {
         <div>
           {/* Generierungs-Aktionen */}
           {selectedSchedule.status === "draft" && (
-            <div className="bg-white rounded-lg shadow p-4 mb-4">
+            <div className="bg-white rounded-lg shadow p-4 mb-4 print:hidden">
               <div className="flex items-center justify-between">
                 <div>
                   <h3 className="font-medium text-gray-800">
@@ -227,7 +228,7 @@ export function ScheduleView() {
                   >
                     {generating ? (
                       <>
-                        <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <Spinner size="sm" />
                         Generiere...
                       </>
                     ) : (
@@ -242,7 +243,7 @@ export function ScheduleView() {
                     >
                       {optimizing ? (
                         <>
-                          <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <Spinner size="sm" />
                           Optimiere...
                         </>
                       ) : (
@@ -257,14 +258,14 @@ export function ScheduleView() {
 
           {/* Fehler */}
           {error && (
-            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4 print:hidden">
               <p className="text-sm text-red-700">{error}</p>
             </div>
           )}
 
           {/* Generierungs-Ergebnis */}
           {generationResult && (
-            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+            <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4 print:hidden">
               <h3 className="font-medium text-green-800 mb-2">
                 Generierung abgeschlossen
               </h3>
@@ -309,7 +310,7 @@ export function ScheduleView() {
 
           {/* Optimierungs-Ergebnis */}
           {optimizationResult && (
-            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4 print:hidden">
               <h3 className="font-medium text-purple-800 mb-2">
                 Optimierung abgeschlossen
               </h3>
@@ -363,7 +364,7 @@ export function ScheduleView() {
 
           {/* Stundenplan-Grid */}
           {loading ? (
-            <div className="text-gray-500">Lade Eintraege...</div>
+            <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Eintraege...</div>
           ) : currentEntries.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
               <p>Noch keine Eintraege vorhanden.</p>
@@ -376,6 +377,7 @@ export function ScheduleView() {
             <ScheduleGrid
               scheduleId={selectedScheduleId!}
               isDraftSchedule={selectedSchedule.status === "draft"}
+              scheduleName={selectedSchedule.name}
             />
           )}
         </div>

@@ -6,6 +6,7 @@ import type {
   SubstitutionCandidate,
   AffectedEntry,
 } from "../types";
+import { useToastStore } from "./toastStore";
 
 interface SubstitutionState {
   selectedDate: string;
@@ -84,6 +85,7 @@ export const useSubstitutionStore = create<SubstitutionState>((set, get) => ({
       substitution: record,
     });
     set({ history: [...get().history, created] });
+    useToastStore.getState().addToast("success", "Vertretung zugewiesen");
     return created;
   },
 
