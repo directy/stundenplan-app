@@ -1,2 +1,4 @@
-// Solver-Modul (Phase 3: Greedy, Phase 7: Tabu Search)
-// Wird spaeter implementiert.
+pub mod types;
+pub mod constraints;
+pub mod scorer;
+pub mod greedy;

@@ -73,6 +73,7 @@ pub fn run() {
             commands::schedule::get_schedule_entries,
             commands::schedule::update_schedule_entry,
             commands::schedule::delete_schedule_entry,
+            commands::schedule::generate_schedule,
             // Constraints
             commands::constraint::get_constraint_rules,
             commands::constraint::create_constraint_rule,

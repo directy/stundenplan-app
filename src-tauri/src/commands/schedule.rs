@@ -2,6 +2,7 @@ use std::sync::Mutex;
 use tauri::State;
 use crate::db::connection::Database;
 use crate::models::{Schedule, NewSchedule, ScheduleEntry, NewScheduleEntry};
+use crate::solver::types::GenerationResult;
 
 #[tauri::command]
 pub async fn create_schedule(
@@ -83,4 +84,13 @@ pub async fn delete_schedule_entry(
 ) -> Result<(), String> {
     let db = db.lock().map_err(|e| format!("Lock-Fehler: {}", e))?;
     crate::db::schedule_entries::delete_schedule_entry(&db.conn, id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn generate_schedule(
+    db: State<'_, Mutex<Database>>,
+    schedule_id: i64,
+) -> Result<GenerationResult, String> {
+    let db = db.lock().map_err(|e| format!("Lock-Fehler: {}", e))?;
+    crate::solver::greedy::generate(&db.conn, schedule_id).map_err(|e| e.to_string())
 }

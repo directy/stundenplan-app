@@ -5,6 +5,7 @@ import type {
   NewSchedule,
   ScheduleEntry,
   NewScheduleEntry,
+  GenerationResult,
 } from "../types";
 
 interface ScheduleState {
@@ -12,6 +13,8 @@ interface ScheduleState {
   currentEntries: ScheduleEntry[];
   loading: boolean;
   error: string | null;
+  generating: boolean;
+  generationResult: GenerationResult | null;
 
   fetchSchedules: () => Promise<void>;
   createSchedule: (schedule: NewSchedule) => Promise<Schedule>;
@@ -24,6 +27,7 @@ interface ScheduleState {
     entry: NewScheduleEntry,
   ) => Promise<ScheduleEntry>;
   deleteScheduleEntry: (id: number) => Promise<void>;
+  generateSchedule: (scheduleId: number) => Promise<GenerationResult>;
 }
 
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
@@ -31,6 +35,8 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   currentEntries: [],
   loading: false,
   error: null,
+  generating: false,
+  generationResult: null,
 
   fetchSchedules: async () => {
     set({ loading: true, error: null });
@@ -100,5 +106,21 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
     set({
       currentEntries: get().currentEntries.filter((e) => e.id !== id),
     });
+  },
+
+  generateSchedule: async (scheduleId: number) => {
+    set({ generating: true, error: null, generationResult: null });
+    try {
+      const result = await invoke<GenerationResult>("generate_schedule", {
+        scheduleId,
+      });
+      set({ generationResult: result, generating: false });
+      // Eintraege nach Generierung neu laden
+      await get().fetchScheduleEntries(scheduleId);
+      return result;
+    } catch (error) {
+      set({ error: String(error), generating: false });
+      throw error;
+    }
   },
 }));

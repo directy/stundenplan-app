@@ -9,6 +9,8 @@ export type {
   ScheduleEntry,
   NewScheduleEntry,
   ScheduleStatus,
+  GenerationResult,
+  UnplacedTask,
 } from "./schedule";
 export type { ConstraintRule, NewConstraintRule } from "./constraint";
 export type { SubstitutionRecord, NewSubstitutionRecord } from "./substitution";

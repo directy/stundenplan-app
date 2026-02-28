@@ -34,3 +34,16 @@ export interface NewScheduleEntry {
   roomId: number;
   decisionLog?: string;
 }
+
+export interface GenerationResult {
+  entriesCreated: number;
+  totalScore: number;
+  averageScore: number;
+  unplacedTasks: UnplacedTask[];
+}
+
+export interface UnplacedTask {
+  classId: number;
+  subjectId: number;
+  reason: string;
+}
