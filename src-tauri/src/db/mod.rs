@@ -14,3 +14,4 @@ pub mod preferences;
 pub mod substitutions;
 pub mod holidays;
 pub mod absences;
+pub mod reports;

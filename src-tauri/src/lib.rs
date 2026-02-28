@@ -76,6 +76,7 @@ pub fn run() {
             commands::schedule::update_schedule_entry,
             commands::schedule::delete_schedule_entry,
             commands::schedule::generate_schedule,
+            commands::schedule::optimize_schedule,
             // Constraints
             commands::constraint::get_constraint_rules,
             commands::constraint::create_constraint_rule,
@@ -103,6 +104,8 @@ pub fn run() {
             commands::absence::get_teacher_absences,
             commands::absence::update_absence,
             commands::absence::delete_absence,
+            // Reports
+            commands::report::get_schedule_report,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Anwendung");

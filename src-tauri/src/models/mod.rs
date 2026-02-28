@@ -9,6 +9,7 @@ pub mod substitution;
 pub mod preference;
 pub mod holiday;
 pub mod absence;
+pub mod report;
 
 pub use teacher::*;
 pub use subject::*;
@@ -21,3 +22,4 @@ pub use substitution::*;
 pub use preference::*;
 pub use holiday::*;
 pub use absence::*;
+pub use report::*;

@@ -376,7 +376,7 @@ fn update_state(
 
 /// Laedt Constraint-Gewichte aus den constraint_rules.
 /// Inaktive Regeln erhalten Gewicht 0.0.
-fn load_constraint_weights(
+pub(crate) fn load_constraint_weights(
     rules: &[crate::models::ConstraintRule],
 ) -> ConstraintWeights {
     let mut weights = ConstraintWeights {

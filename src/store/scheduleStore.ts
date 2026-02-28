@@ -6,6 +6,7 @@ import type {
   ScheduleEntry,
   NewScheduleEntry,
   GenerationResult,
+  OptimizationResult,
 } from "../types";
 
 interface ScheduleState {
@@ -15,6 +16,8 @@ interface ScheduleState {
   error: string | null;
   generating: boolean;
   generationResult: GenerationResult | null;
+  optimizing: boolean;
+  optimizationResult: OptimizationResult | null;
 
   fetchSchedules: () => Promise<void>;
   createSchedule: (schedule: NewSchedule) => Promise<Schedule>;
@@ -28,6 +31,7 @@ interface ScheduleState {
   ) => Promise<ScheduleEntry>;
   deleteScheduleEntry: (id: number) => Promise<void>;
   generateSchedule: (scheduleId: number) => Promise<GenerationResult>;
+  optimizeSchedule: (scheduleId: number) => Promise<OptimizationResult>;
 }
 
 export const useScheduleStore = create<ScheduleState>((set, get) => ({
@@ -37,6 +41,8 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   error: null,
   generating: false,
   generationResult: null,
+  optimizing: false,
+  optimizationResult: null,
 
   fetchSchedules: async () => {
     set({ loading: true, error: null });
@@ -120,6 +126,22 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       return result;
     } catch (error) {
       set({ error: String(error), generating: false });
+      throw error;
+    }
+  },
+
+  optimizeSchedule: async (scheduleId: number) => {
+    set({ optimizing: true, error: null, optimizationResult: null });
+    try {
+      const result = await invoke<OptimizationResult>("optimize_schedule", {
+        scheduleId,
+      });
+      set({ optimizationResult: result, optimizing: false });
+      // Eintraege nach Optimierung neu laden
+      await get().fetchScheduleEntries(scheduleId);
+      return result;
+    } catch (error) {
+      set({ error: String(error), optimizing: false });
       throw error;
     }
   },

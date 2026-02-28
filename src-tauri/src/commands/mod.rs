@@ -9,3 +9,4 @@ pub mod preference;
 pub mod substitution;
 pub mod holiday;
 pub mod absence;
+pub mod report;

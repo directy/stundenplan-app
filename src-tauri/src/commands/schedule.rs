@@ -2,7 +2,7 @@ use std::sync::Mutex;
 use tauri::State;
 use crate::db::connection::Database;
 use crate::models::{Schedule, NewSchedule, ScheduleEntry, NewScheduleEntry};
-use crate::solver::types::GenerationResult;
+use crate::solver::types::{GenerationResult, OptimizationResult, TabuSearchConfig};
 
 #[tauri::command]
 pub async fn create_schedule(
@@ -93,4 +93,15 @@ pub async fn generate_schedule(
 ) -> Result<GenerationResult, String> {
     let db = db.lock().map_err(|e| format!("Lock-Fehler: {}", e))?;
     crate::solver::greedy::generate(&db.conn, schedule_id).map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn optimize_schedule(
+    db: State<'_, Mutex<Database>>,
+    schedule_id: i64,
+    config: Option<TabuSearchConfig>,
+) -> Result<OptimizationResult, String> {
+    let db = db.lock().map_err(|e| format!("Lock-Fehler: {}", e))?;
+    let cfg = config.unwrap_or_default();
+    crate::solver::tabu_search::optimize(&db.conn, schedule_id, cfg).map_err(|e| e.to_string())
 }

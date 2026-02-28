@@ -11,6 +11,8 @@ export type {
   ScheduleStatus,
   GenerationResult,
   UnplacedTask,
+  TabuSearchConfig,
+  OptimizationResult,
 } from "./schedule";
 export type { ConstraintRule, NewConstraintRule } from "./constraint";
 export type {
@@ -31,3 +33,10 @@ export type {
   NewTeacherAbsence,
   AbsenceType,
 } from "./absence";
+export type {
+  ScheduleReport,
+  ReportSummary,
+  ConstraintAnalysisItem,
+  ReportEntry,
+  TeacherWorkloadItem,
+} from "./report";

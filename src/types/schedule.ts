@@ -51,3 +51,19 @@ export interface UnplacedTask {
   subjectId: number;
   reason: string;
 }
+
+export interface TabuSearchConfig {
+  maxIterations: number;
+  tabuTenure: number;
+  maxNoImprove: number;
+  neighborhoodSampleSize: number;
+}
+
+export interface OptimizationResult {
+  initialScore: number;
+  finalScore: number;
+  improvementPercent: number;
+  iterationsRun: number;
+  movesApplied: number;
+  entriesModified: number;
+}

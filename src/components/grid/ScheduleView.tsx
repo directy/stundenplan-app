@@ -16,10 +16,13 @@ export function ScheduleView() {
     error,
     generating,
     generationResult,
+    optimizing,
+    optimizationResult,
     fetchSchedules,
     createSchedule,
     fetchScheduleEntries,
     generateSchedule,
+    optimizeSchedule,
   } = useScheduleStore();
 
   const [selectedScheduleId, setSelectedScheduleId] = useState<number | null>(
@@ -79,6 +82,15 @@ export function ScheduleView() {
     if (!selectedScheduleId) return;
     try {
       await generateSchedule(selectedScheduleId);
+    } catch {
+      // Fehler wird im Store gesetzt
+    }
+  };
+
+  const handleOptimize = async () => {
+    if (!selectedScheduleId) return;
+    try {
+      await optimizeSchedule(selectedScheduleId);
     } catch {
       // Fehler wird im Store gesetzt
     }
@@ -207,20 +219,38 @@ export function ScheduleView() {
                     optimiert Soft Constraints.
                   </p>
                 </div>
-                <button
-                  onClick={handleGenerate}
-                  disabled={generating}
-                  className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
-                >
-                  {generating ? (
-                    <>
-                      <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      Generiere...
-                    </>
-                  ) : (
-                    "Generieren"
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleGenerate}
+                    disabled={generating || optimizing}
+                    className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                  >
+                    {generating ? (
+                      <>
+                        <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Generiere...
+                      </>
+                    ) : (
+                      "Generieren"
+                    )}
+                  </button>
+                  {currentEntries.length > 0 && (
+                    <button
+                      onClick={handleOptimize}
+                      disabled={optimizing || generating}
+                      className="px-4 py-2 text-sm bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors flex items-center gap-2"
+                    >
+                      {optimizing ? (
+                        <>
+                          <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          Optimiere...
+                        </>
+                      ) : (
+                        "Optimieren"
+                      )}
+                    </button>
                   )}
-                </button>
+                </div>
               </div>
             </div>
           )}
@@ -274,6 +304,60 @@ export function ScheduleView() {
                   </ul>
                 </div>
               )}
+            </div>
+          )}
+
+          {/* Optimierungs-Ergebnis */}
+          {optimizationResult && (
+            <div className="bg-purple-50 border border-purple-200 rounded-lg p-4 mb-4">
+              <h3 className="font-medium text-purple-800 mb-2">
+                Optimierung abgeschlossen
+              </h3>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <span className="text-purple-600">Score vorher:</span>
+                  <span className="ml-1 font-medium text-purple-800">
+                    {(optimizationResult.initialScore * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span className="text-purple-600">Score nachher:</span>
+                  <span className="ml-1 font-medium text-purple-800">
+                    {(optimizationResult.finalScore * 100).toFixed(1)}%
+                  </span>
+                </div>
+                <div>
+                  <span className="text-purple-600">Verbesserung:</span>
+                  <span className={`ml-1 font-medium ${
+                    optimizationResult.improvementPercent > 0
+                      ? "text-green-700"
+                      : "text-purple-800"
+                  }`}>
+                    {optimizationResult.improvementPercent > 0 ? "+" : ""}
+                    {optimizationResult.improvementPercent.toFixed(1)}%
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4 text-sm mt-2">
+                <div>
+                  <span className="text-purple-600">Iterationen:</span>
+                  <span className="ml-1 font-medium text-purple-800">
+                    {optimizationResult.iterationsRun}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-purple-600">Moves angewendet:</span>
+                  <span className="ml-1 font-medium text-purple-800">
+                    {optimizationResult.movesApplied}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-purple-600">Eintraege geaendert:</span>
+                  <span className="ml-1 font-medium text-purple-800">
+                    {optimizationResult.entriesModified}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
