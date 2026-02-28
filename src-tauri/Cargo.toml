@@ -1,6 +1,6 @@
 [package]
 name = "stundenplan-app"
-version = "0.1.0"
+version = "1.0.0"
 description = "Stundenplan-System - Stunden- und Vertretungsplanung"
 authors = ["you"]
 edition = "2021"
