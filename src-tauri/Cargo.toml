@@ -35,3 +35,6 @@ thiserror = "2"
 anyhow = "1"
 tauri-plugin-dialog = "2.6.0"
 tauri-plugin-fs = "2.4.5"
+
+# Lizenz
+license_core = { path = "../crates/license_core" }

@@ -1,0 +1,13 @@
+{
+  "licenseId": "550e8400-e29b-41d4-a716-446655440000",
+  "productId": "stundenplan",
+  "licenseeName": "Musterschule Berlin",
+  "licenseeEmail": "verwaltung@musterschule.de",
+  "licenseType": "standard",
+  "issuedAt": "2026-02-28T10:00:00Z",
+  "expiresAt": null,
+  "features": ["all"],
+  "maxVersion": null,
+  "machineFingerprint": null,
+  "metadata": {}
+}

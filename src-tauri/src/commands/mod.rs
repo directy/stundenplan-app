@@ -11,3 +11,4 @@ pub mod holiday;
 pub mod absence;
 pub mod report;
 pub mod seed;
+pub mod license;

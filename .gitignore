@@ -27,3 +27,13 @@ dist-ssr
 
 # Tauri
 src-tauri/target/
+
+# License crate build artifacts
+crates/license_core/target/
+crates/license_gen/target/
+
+# Private keys (NEVER commit!)
+keys/
+*.key
+*.lic
+!examples/license_example.json

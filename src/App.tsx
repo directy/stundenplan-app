@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ToastContainer } from "./components/shared/Toast";
+import { LicenseGate } from "./components/license/LicenseGate";
 import { TeacherList } from "./components/teacher/TeacherList";
 import { SubjectList } from "./components/subject/SubjectList";
 import { ClassList } from "./components/class/ClassList";
@@ -50,6 +51,7 @@ function App() {
   const [activeTab, setActiveTab] = useState<Tab>("dashboard");
 
   return (
+    <LicenseGate>
     <div className="min-h-screen bg-gray-50 flex flex-col">
       <header className="bg-white border-b border-gray-200 shadow-sm print:hidden">
         <div className="px-4 py-3 flex items-center justify-between">
@@ -94,6 +96,7 @@ function App() {
       </main>
       <ToastContainer />
     </div>
+    </LicenseGate>
   );
 }
 

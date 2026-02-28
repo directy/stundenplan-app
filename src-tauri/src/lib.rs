@@ -4,6 +4,7 @@ pub mod db;
 pub mod commands;
 pub mod solver;
 pub mod substitution;
+pub mod license;
 
 use std::sync::Mutex;
 use tauri::Manager;
@@ -32,6 +33,12 @@ pub fn run() {
                 .map_err(|e| format!("Constraint-Seed fehlgeschlagen: {}", e))?;
 
             app.manage(Mutex::new(database));
+
+            // License validation
+            let license_path = license::locate_license_path(&app.handle());
+            let license_status = license::load_and_validate(&license_path);
+            app.manage(Mutex::new(license_status));
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -111,6 +118,9 @@ pub fn run() {
             commands::report::get_schedule_report,
             // Seed
             commands::seed::seed_example_data,
+            // License
+            commands::license::get_license_status,
+            commands::license::import_license_file,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Anwendung");

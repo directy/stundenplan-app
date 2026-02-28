@@ -1,0 +1,22 @@
+[package]
+name = "stundenplan-license-manager"
+version = "1.0.0"
+description = "Stundenplan License Manager – Lizenzen erstellen, signieren und pruefen"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "license_manager_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = [] }
+tauri-plugin-dialog = "2.6.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+ed25519-dalek = "2"
+license_core = { path = "../../../crates/license_core" }
