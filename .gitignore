@@ -27,6 +27,7 @@ dist-ssr
 
 # Tauri
 src-tauri/target/
+tools/license-manager/src-tauri/target/
 
 # License crate build artifacts
 crates/license_core/target/
