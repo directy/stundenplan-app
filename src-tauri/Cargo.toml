@@ -1,0 +1,32 @@
+[package]
+name = "stundenplan-app"
+version = "0.1.0"
+description = "Stundenplan-System - Stunden- und Vertretungsplanung"
+authors = ["you"]
+edition = "2021"
+
+[lib]
+name = "stundenplan_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+# Tauri
+tauri = { version = "2", features = [] }
+tauri-plugin-opener = "2"
+
+# Serialisierung
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Datenbank
+rusqlite = { version = "0.32", features = ["bundled"] }
+
+# Datum/Zeit
+chrono = { version = "0.4", features = ["serde"] }
+
+# Fehlerbehandlung
+thiserror = "2"
+anyhow = "1"

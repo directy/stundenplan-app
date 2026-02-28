@@ -1,0 +1,9 @@
+pub mod teacher;
+pub mod subject;
+pub mod class;
+pub mod room;
+pub mod time_slot;
+pub mod schedule;
+pub mod constraint;
+pub mod preference;
+pub mod substitution;

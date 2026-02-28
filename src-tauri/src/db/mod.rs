@@ -1,0 +1,14 @@
+pub mod connection;
+pub mod schema;
+pub mod migrations;
+pub mod teachers;
+pub mod subjects;
+pub mod teacher_subjects;
+pub mod classes;
+pub mod rooms;
+pub mod time_slots;
+pub mod schedules;
+pub mod schedule_entries;
+pub mod constraints;
+pub mod preferences;
+pub mod substitutions;
