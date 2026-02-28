@@ -4,6 +4,8 @@ export interface Schedule {
   id: number;
   name: string;
   status: ScheduleStatus;
+  validFrom: string | null;
+  validTo: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -11,6 +13,8 @@ export interface Schedule {
 export interface NewSchedule {
   name: string;
   status?: ScheduleStatus;
+  validFrom?: string | null;
+  validTo?: string | null;
 }
 
 export interface ScheduleEntry {

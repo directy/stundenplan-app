@@ -13,6 +13,8 @@ use db::connection::Database;
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .setup(|app| {
             let app_data_dir = app.path().app_data_dir()
                 .map_err(|e| format!("App-Datenverzeichnis nicht gefunden: {}", e))?;
@@ -88,6 +90,19 @@ pub fn run() {
             commands::substitution::create_substitution,
             commands::substitution::get_substitutions,
             commands::substitution::get_substitutions_by_date,
+            commands::substitution::get_substitution_candidates,
+            commands::substitution::get_affected_entries,
+            commands::substitution::check_holiday,
+            // Holidays
+            commands::holiday::import_holidays,
+            commands::holiday::get_holidays,
+            commands::holiday::delete_all_holidays,
+            // Absences
+            commands::absence::create_absence,
+            commands::absence::get_absences,
+            commands::absence::get_teacher_absences,
+            commands::absence::update_absence,
+            commands::absence::delete_absence,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Anwendung");

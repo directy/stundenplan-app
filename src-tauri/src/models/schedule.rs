@@ -6,6 +6,8 @@ pub struct Schedule {
     pub id: i64,
     pub name: String,
     pub status: String,
+    pub valid_from: Option<String>,
+    pub valid_to: Option<String>,
     pub created_at: String,
     pub updated_at: String,
 }
@@ -15,6 +17,8 @@ pub struct Schedule {
 pub struct NewSchedule {
     pub name: String,
     pub status: Option<String>,
+    pub valid_from: Option<String>,
+    pub valid_to: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

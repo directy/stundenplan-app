@@ -7,6 +7,8 @@ pub mod schedule;
 pub mod constraint;
 pub mod substitution;
 pub mod preference;
+pub mod holiday;
+pub mod absence;
 
 pub use teacher::*;
 pub use subject::*;
@@ -17,3 +19,5 @@ pub use schedule::*;
 pub use constraint::*;
 pub use substitution::*;
 pub use preference::*;
+pub use holiday::*;
+pub use absence::*;

@@ -13,9 +13,21 @@ export type {
   UnplacedTask,
 } from "./schedule";
 export type { ConstraintRule, NewConstraintRule } from "./constraint";
-export type { SubstitutionRecord, NewSubstitutionRecord } from "./substitution";
+export type {
+  SubstitutionRecord,
+  NewSubstitutionRecord,
+  SubstitutionCandidate,
+  ScoreBreakdown,
+  AffectedEntry,
+} from "./substitution";
 export type {
   TeacherPreference,
   NewTeacherPreference,
   PreferenceType,
 } from "./preference";
+export type { Holiday, HolidayPeriod, HolidayImportData } from "./holiday";
+export type {
+  TeacherAbsence,
+  NewTeacherAbsence,
+  AbsenceType,
+} from "./absence";

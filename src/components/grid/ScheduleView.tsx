@@ -26,6 +26,8 @@ export function ScheduleView() {
     null,
   );
   const [newScheduleName, setNewScheduleName] = useState("");
+  const [newValidFrom, setNewValidFrom] = useState("");
+  const [newValidTo, setNewValidTo] = useState("");
   const [showCreateForm, setShowCreateForm] = useState(false);
 
   const { fetchTeachers } = useTeacherStore();
@@ -61,8 +63,14 @@ export function ScheduleView() {
 
   const handleCreate = async () => {
     if (!newScheduleName.trim()) return;
-    const created = await createSchedule({ name: newScheduleName.trim() });
+    const created = await createSchedule({
+      name: newScheduleName.trim(),
+      validFrom: newValidFrom || null,
+      validTo: newValidTo || null,
+    });
     setNewScheduleName("");
+    setNewValidFrom("");
+    setNewValidTo("");
     setShowCreateForm(false);
     handleSelectSchedule(created);
   };
@@ -89,28 +97,49 @@ export function ScheduleView() {
       </div>
 
       {showCreateForm && (
-        <div className="bg-white rounded-lg shadow p-4 mb-4 flex gap-2">
-          <input
-            type="text"
-            value={newScheduleName}
-            onChange={(e) => setNewScheduleName(e.target.value)}
-            placeholder="Name des Stundenplans"
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            onKeyDown={(e) => e.key === "Enter" && handleCreate()}
-          />
-          <button
-            onClick={handleCreate}
-            disabled={!newScheduleName.trim()}
-            className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
-          >
-            Erstellen
-          </button>
-          <button
-            onClick={() => setShowCreateForm(false)}
-            className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
-          >
-            Abbrechen
-          </button>
+        <div className="bg-white rounded-lg shadow p-4 mb-4">
+          <div className="flex gap-2 mb-3">
+            <input
+              type="text"
+              value={newScheduleName}
+              onChange={(e) => setNewScheduleName(e.target.value)}
+              placeholder="Name des Stundenplans"
+              className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              onKeyDown={(e) => e.key === "Enter" && handleCreate()}
+            />
+            <button
+              onClick={handleCreate}
+              disabled={!newScheduleName.trim()}
+              className="px-4 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
+            >
+              Erstellen
+            </button>
+            <button
+              onClick={() => setShowCreateForm(false)}
+              className="px-4 py-2 text-sm bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+            >
+              Abbrechen
+            </button>
+          </div>
+          <div className="flex gap-3 items-center">
+            <span className="text-xs text-gray-500">Gueltig von:</span>
+            <input
+              type="date"
+              value={newValidFrom}
+              onChange={(e) => setNewValidFrom(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-500">bis:</span>
+            <input
+              type="date"
+              value={newValidTo}
+              onChange={(e) => setNewValidTo(e.target.value)}
+              className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <span className="text-xs text-gray-400">
+              (optional – fuer Abwesenheits-Filter im Solver)
+            </span>
+          </div>
         </div>
       )}
 

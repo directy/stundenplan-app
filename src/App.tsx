@@ -7,6 +7,8 @@ import { ScheduleView } from "./components/grid/ScheduleView";
 import { RulesPanel } from "./components/rules/RulesPanel";
 import { SubstitutionView } from "./components/substitution/SubstitutionView";
 import { ReportView } from "./components/reports/ReportView";
+import { HolidayView } from "./components/holiday/HolidayView";
+import { AbsenceView } from "./components/absence/AbsenceView";
 
 type Tab =
   | "schedule"
@@ -15,6 +17,8 @@ type Tab =
   | "classes"
   | "rooms"
   | "rules"
+  | "holidays"
+  | "absences"
   | "substitution"
   | "reports";
 
@@ -25,6 +29,8 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "classes", label: "Klassen" },
   { id: "rooms", label: "Raeume" },
   { id: "rules", label: "Regeln" },
+  { id: "holidays", label: "Ferien" },
+  { id: "absences", label: "Abwesenheiten" },
   { id: "substitution", label: "Vertretung" },
   { id: "reports", label: "Bericht" },
 ];
@@ -64,6 +70,8 @@ function App() {
         {activeTab === "classes" && <ClassList />}
         {activeTab === "rooms" && <RoomList />}
         {activeTab === "rules" && <RulesPanel />}
+        {activeTab === "holidays" && <HolidayView />}
+        {activeTab === "absences" && <AbsenceView />}
         {activeTab === "substitution" && <SubstitutionView />}
         {activeTab === "reports" && <ReportView />}
       </main>

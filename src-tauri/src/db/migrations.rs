@@ -24,11 +24,42 @@ pub fn run_migrations(conn: &Connection) -> Result<(), AppError> {
         )?;
     }
 
-    // Zukuenftige Migrationen:
-    // if current_version < 2 {
-    //     conn.execute_batch("ALTER TABLE ...")?;
-    //     conn.execute("INSERT INTO schema_version (version) VALUES (?1)", [2])?;
-    // }
+    if current_version < 2 {
+        // Version 2: Ferien, Lehrer-Abwesenheiten, Gueltigkeitszeitraum fuer Stundenplaene
+        conn.execute_batch("
+            CREATE TABLE IF NOT EXISTS holidays (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                school_year TEXT NOT NULL,
+                state TEXT NOT NULL,
+                name TEXT NOT NULL,
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS teacher_absences (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+                absence_type TEXT NOT NULL
+                    CHECK(absence_type IN ('illness', 'maternity', 'sabbatical', 'training', 'other')),
+                start_date TEXT NOT NULL,
+                end_date TEXT NOT NULL,
+                note TEXT DEFAULT '',
+                created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+            );
+        ")?;
+
+        // ALTER TABLE in separaten Statements (SQLite-Beschraenkung)
+        // Ignoriere Fehler falls Spalten bereits existieren (idempotent)
+        let _ = conn.execute("ALTER TABLE schedules ADD COLUMN valid_from TEXT", []);
+        let _ = conn.execute("ALTER TABLE schedules ADD COLUMN valid_to TEXT", []);
+
+        conn.execute(
+            "INSERT INTO schema_version (version) VALUES (?1)",
+            [2],
+        )?;
+    }
 
     Ok(())
 }
@@ -49,7 +80,7 @@ mod tests {
         let version: i64 = conn
             .query_row("SELECT MAX(version) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(version, 1);
+        assert_eq!(version, 2);
     }
 
     #[test]
@@ -63,6 +94,6 @@ mod tests {
         let count: i64 = conn
             .query_row("SELECT COUNT(*) FROM schema_version", [], |row| row.get(0))
             .unwrap();
-        assert_eq!(count, 1);
+        assert_eq!(count, 2);
     }
 }

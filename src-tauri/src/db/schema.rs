@@ -69,6 +69,8 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             name TEXT NOT NULL,
             status TEXT NOT NULL DEFAULT 'draft'
                 CHECK(status IN ('draft', 'active', 'archived')),
+            valid_from TEXT,
+            valid_to TEXT,
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
@@ -117,6 +119,30 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
                 CHECK(preference_type IN ('preferred', 'unavailable')),
             reason TEXT DEFAULT ''
         );
+
+        -- Schulferien (importiert aus JSON)
+        CREATE TABLE IF NOT EXISTS holidays (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            school_year TEXT NOT NULL,
+            state TEXT NOT NULL,
+            name TEXT NOT NULL,
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Langzeit-Abwesenheiten von Lehrkraeften
+        CREATE TABLE IF NOT EXISTS teacher_absences (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+            absence_type TEXT NOT NULL
+                CHECK(absence_type IN ('illness', 'maternity', 'sabbatical', 'training', 'other')),
+            start_date TEXT NOT NULL,
+            end_date TEXT NOT NULL,
+            note TEXT DEFAULT '',
+            created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
     ")?;
 
     Ok(())
@@ -153,6 +179,8 @@ mod tests {
         assert!(tables.contains(&"constraint_rules".to_string()));
         assert!(tables.contains(&"substitution_history".to_string()));
         assert!(tables.contains(&"teacher_preferences".to_string()));
+        assert!(tables.contains(&"holidays".to_string()));
+        assert!(tables.contains(&"teacher_absences".to_string()));
     }
 
     #[test]

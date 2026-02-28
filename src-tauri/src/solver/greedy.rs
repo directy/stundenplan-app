@@ -38,7 +38,18 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
     )?;
 
     // 2. Alle Stammdaten laden
-    let teachers = db::teachers::get_teachers(conn)?;
+    // Lehrer filtern, die waehrend des Gueltigkeitszeitraums komplett abwesend sind
+    let all_teachers = db::teachers::get_teachers(conn)?;
+    let teachers: Vec<Teacher> = match (&schedule.valid_from, &schedule.valid_to) {
+        (Some(from), Some(to)) => all_teachers
+            .into_iter()
+            .filter(|t| {
+                !db::absences::is_teacher_absent_in_range(conn, t.id, from, to)
+                    .unwrap_or(false)
+            })
+            .collect(),
+        _ => all_teachers,
+    };
     let subjects = db::subjects::get_subjects(conn)?;
     let classes = db::classes::get_classes(conn)?;
     let rooms = db::rooms::get_rooms(conn)?;
@@ -420,7 +431,7 @@ mod tests {
         // Schedule erstellen
         let schedule = db::schedules::create_schedule(
             &db.conn,
-            &NewSchedule { name: "Test".into(), status: None },
+            &NewSchedule { name: "Test".into(), status: None, valid_from: None, valid_to: None },
         ).unwrap();
 
         // Generieren: keine Klassen/Faecher/Lehrer -> 0 Eintraege
@@ -472,7 +483,7 @@ mod tests {
         // Schedule erstellen
         let schedule = db::schedules::create_schedule(
             &db.conn,
-            &NewSchedule { name: "Test".into(), status: None },
+            &NewSchedule { name: "Test".into(), status: None, valid_from: None, valid_to: None },
         ).unwrap();
 
         // Generieren
@@ -533,7 +544,7 @@ mod tests {
         // Schedule erstellen
         let schedule = db::schedules::create_schedule(
             &db.conn,
-            &NewSchedule { name: "Test".into(), status: None },
+            &NewSchedule { name: "Test".into(), status: None, valid_from: None, valid_to: None },
         ).unwrap();
 
         // Generieren: kein qualifizierter Lehrer => Tasks werden uebersprungen
@@ -602,7 +613,7 @@ mod tests {
 
         let schedule = db::schedules::create_schedule(
             &db.conn,
-            &NewSchedule { name: "Test".into(), status: None },
+            &NewSchedule { name: "Test".into(), status: None, valid_from: None, valid_to: None },
         ).unwrap();
 
         let result = generate(&db.conn, schedule.id).unwrap();
@@ -644,7 +655,7 @@ mod tests {
 
         let schedule = db::schedules::create_schedule(
             &db.conn,
-            &NewSchedule { name: "Aktiv".into(), status: Some("active".into()) },
+            &NewSchedule { name: "Aktiv".into(), status: Some("active".into()), valid_from: None, valid_to: None },
         ).unwrap();
 
         let result = generate(&db.conn, schedule.id);

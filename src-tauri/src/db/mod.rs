@@ -12,3 +12,5 @@ pub mod schedule_entries;
 pub mod constraints;
 pub mod preferences;
 pub mod substitutions;
+pub mod holidays;
+pub mod absences;

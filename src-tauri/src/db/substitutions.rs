@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use rusqlite::{params, Connection};
 use crate::error::AppError;
 use crate::models::{SubstitutionRecord, NewSubstitutionRecord};
@@ -89,4 +90,27 @@ pub fn get_substitutions_by_date(conn: &Connection, date: &str) -> Result<Vec<Su
         subs.push(row?);
     }
     Ok(subs)
+}
+
+/// Zaehlt Vertretungen pro Lehrkraft in den letzten N Tagen
+pub fn count_recent_substitutions_by_teacher(
+    conn: &Connection,
+    lookback_days: i32,
+) -> Result<HashMap<i64, i32>, AppError> {
+    let param = format!("-{} days", lookback_days);
+    let mut stmt = conn.prepare(
+        "SELECT substitute_teacher_id, COUNT(*)
+         FROM substitution_history
+         WHERE date >= date('now', ?1)
+         GROUP BY substitute_teacher_id"
+    )?;
+    let rows = stmt.query_map([&param], |row| {
+        Ok((row.get::<_, i64>(0)?, row.get::<_, i32>(1)?))
+    })?;
+    let mut map = HashMap::new();
+    for row in rows {
+        let (id, count) = row?;
+        map.insert(id, count);
+    }
+    Ok(map)
 }

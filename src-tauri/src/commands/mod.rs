@@ -7,3 +7,5 @@ pub mod schedule;
 pub mod constraint;
 pub mod preference;
 pub mod substitution;
+pub mod holiday;
+pub mod absence;
