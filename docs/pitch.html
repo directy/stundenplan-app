@@ -1,0 +1,815 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stundenplan-System – Intelligente Stundenplanung für Ihre Schule</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html {
+      font-size: 11pt;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    body {
+      font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif;
+      color: #1e293b;
+      line-height: 1.6;
+      background: #f8fafc;
+    }
+
+    /* ── Print Layout ── */
+    @page {
+      size: A4;
+      margin: 2cm;
+    }
+
+    .page {
+      width: 100%;
+      max-width: 210mm;
+      margin: 0 auto 2rem;
+      padding: 2cm;
+      background: white;
+      min-height: 297mm;
+      position: relative;
+    }
+
+    @media print {
+      body { background: white; }
+      .page {
+        margin: 0;
+        padding: 0;
+        min-height: auto;
+        max-width: none;
+        page-break-after: always;
+        box-shadow: none;
+      }
+      .page:last-child { page-break-after: avoid; }
+    }
+
+    @media screen {
+      .page {
+        box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+        border-radius: 4px;
+      }
+    }
+
+    /* ── Typography ── */
+    h1 { font-size: 2.4rem; font-weight: 700; color: #1e3a5f; line-height: 1.2; }
+    h2 { font-size: 1.6rem; font-weight: 700; color: #1e40af; margin-bottom: 0.8rem; }
+    h3 { font-size: 1.15rem; font-weight: 600; color: #1e3a5f; margin-bottom: 0.4rem; }
+    p { margin-bottom: 0.6rem; }
+
+    /* ── Colors ── */
+    :root {
+      --blue-900: #1e3a5f;
+      --blue-700: #1e40af;
+      --blue-600: #2563eb;
+      --blue-500: #3b82f6;
+      --blue-100: #dbeafe;
+      --blue-50: #eff6ff;
+      --gray-800: #1e293b;
+      --gray-600: #475569;
+      --gray-400: #94a3b8;
+      --gray-200: #e2e8f0;
+      --gray-50: #f8fafc;
+      --green-600: #16a34a;
+      --green-50: #f0fdf4;
+      --amber-600: #d97706;
+      --amber-50: #fffbeb;
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE 1 – COVER
+       ══════════════════════════════════════════ */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      background: linear-gradient(135deg, #1e3a5f 0%, #1e40af 50%, #3b82f6 100%);
+      color: white;
+    }
+
+    .cover-logo {
+      width: 80px;
+      height: 80px;
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.8rem;
+      margin-bottom: 2rem;
+      border: 2px solid rgba(255,255,255,0.25);
+    }
+
+    .cover h1 {
+      color: white;
+      font-size: 2.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .cover-subtitle {
+      font-size: 1.3rem;
+      color: rgba(255,255,255,0.85);
+      margin-bottom: 3rem;
+      font-weight: 300;
+    }
+
+    .cover-features {
+      list-style: none;
+      text-align: left;
+      max-width: 500px;
+    }
+
+    .cover-features li {
+      padding: 0.6rem 0;
+      font-size: 1.05rem;
+      display: flex;
+      align-items: flex-start;
+      gap: 0.8rem;
+    }
+
+    .cover-features li::before {
+      content: "✓";
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 24px;
+      height: 24px;
+      min-width: 24px;
+      background: rgba(255,255,255,0.2);
+      border-radius: 50%;
+      font-size: 0.8rem;
+      font-weight: 700;
+    }
+
+    .cover-version {
+      position: absolute;
+      bottom: 2cm;
+      font-size: 0.9rem;
+      color: rgba(255,255,255,0.6);
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE 2 – PROBLEM & LÖSUNG
+       ══════════════════════════════════════════ */
+    .two-column {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2rem;
+      margin-top: 1.5rem;
+    }
+
+    .column-card {
+      padding: 1.5rem;
+      border-radius: 12px;
+    }
+
+    .column-card.problem {
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .column-card.solution {
+      background: var(--green-50);
+      border: 1px solid #bbf7d0;
+    }
+
+    .column-card h3 {
+      margin-bottom: 1rem;
+    }
+
+    .column-card.problem h3 { color: #dc2626; }
+    .column-card.solution h3 { color: var(--green-600); }
+
+    .column-card ul {
+      list-style: none;
+      padding: 0;
+    }
+
+    .column-card ul li {
+      padding: 0.5rem 0;
+      padding-left: 1.5rem;
+      position: relative;
+      font-size: 0.95rem;
+      color: var(--gray-600);
+    }
+
+    .column-card.problem ul li::before {
+      content: "✗";
+      position: absolute;
+      left: 0;
+      color: #dc2626;
+      font-weight: 700;
+    }
+
+    .column-card.solution ul li::before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      color: var(--green-600);
+      font-weight: 700;
+    }
+
+    .page-intro {
+      font-size: 1.05rem;
+      color: var(--gray-600);
+      margin-bottom: 0.5rem;
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE 3 – FEATURES
+       ══════════════════════════════════════════ */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1rem;
+      margin-top: 1.5rem;
+    }
+
+    .feature-card {
+      padding: 1.2rem;
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+      border-radius: 10px;
+    }
+
+    .feature-card .feature-icon {
+      font-size: 1.5rem;
+      margin-bottom: 0.4rem;
+    }
+
+    .feature-card h3 {
+      font-size: 0.95rem;
+      color: var(--blue-700);
+      margin-bottom: 0.3rem;
+    }
+
+    .feature-card p {
+      font-size: 0.85rem;
+      color: var(--gray-600);
+      margin: 0;
+      line-height: 1.45;
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE 4 – TRANSPARENZ & FAIRNESS
+       ══════════════════════════════════════════ */
+    .info-box {
+      padding: 1.2rem 1.5rem;
+      border-radius: 10px;
+      margin-bottom: 1.2rem;
+    }
+
+    .info-box.blue {
+      background: var(--blue-50);
+      border: 1px solid var(--blue-100);
+    }
+
+    .info-box.amber {
+      background: var(--amber-50);
+      border: 1px solid #fde68a;
+    }
+
+    .info-box h3 { margin-bottom: 0.5rem; }
+
+    .scoring-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1rem 0;
+      font-size: 0.9rem;
+    }
+
+    .scoring-table th {
+      background: var(--blue-700);
+      color: white;
+      padding: 0.6rem 0.8rem;
+      text-align: left;
+      font-weight: 600;
+    }
+
+    .scoring-table th:first-child { border-radius: 8px 0 0 0; }
+    .scoring-table th:last-child { border-radius: 0 8px 0 0; }
+
+    .scoring-table td {
+      padding: 0.5rem 0.8rem;
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .scoring-table tr:nth-child(even) td {
+      background: var(--gray-50);
+    }
+
+    .example-box {
+      background: #f0f9ff;
+      border-left: 4px solid var(--blue-500);
+      padding: 1rem 1.2rem;
+      margin-top: 1.2rem;
+      border-radius: 0 8px 8px 0;
+      font-size: 0.9rem;
+    }
+
+    .example-box strong {
+      display: block;
+      margin-bottom: 0.3rem;
+      color: var(--blue-700);
+    }
+
+    .example-box p {
+      color: var(--gray-600);
+      margin: 0;
+      font-style: italic;
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE 5 – DATENSCHUTZ & TECHNIK
+       ══════════════════════════════════════════ */
+    .tech-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.2rem;
+      margin-top: 1.5rem;
+    }
+
+    .tech-card {
+      padding: 1.2rem;
+      border-radius: 10px;
+      border: 1px solid var(--gray-200);
+      background: white;
+    }
+
+    .tech-card .tech-icon {
+      font-size: 1.8rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .tech-card h3 {
+      font-size: 1rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .tech-card p {
+      font-size: 0.88rem;
+      color: var(--gray-600);
+      margin: 0;
+    }
+
+    .tech-highlight {
+      display: inline-block;
+      background: var(--green-50);
+      border: 1px solid #bbf7d0;
+      color: var(--green-600);
+      padding: 0.2rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      margin-top: 0.4rem;
+    }
+
+    /* ══════════════════════════════════════════
+       PAGE 6 – NÄCHSTE SCHRITTE
+       ══════════════════════════════════════════ */
+    .steps-list {
+      list-style: none;
+      padding: 0;
+      margin-top: 1.5rem;
+    }
+
+    .steps-list li {
+      display: flex;
+      gap: 1.2rem;
+      padding: 1.2rem;
+      margin-bottom: 1rem;
+      background: white;
+      border: 1px solid var(--gray-200);
+      border-radius: 12px;
+      align-items: flex-start;
+    }
+
+    .step-number {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      background: var(--blue-600);
+      color: white;
+      border-radius: 10px;
+      font-size: 1.2rem;
+      font-weight: 700;
+    }
+
+    .step-content h3 {
+      margin-bottom: 0.3rem;
+    }
+
+    .step-content p {
+      color: var(--gray-600);
+      font-size: 0.92rem;
+      margin: 0;
+    }
+
+    .contact-box {
+      margin-top: 2rem;
+      padding: 1.5rem;
+      background: linear-gradient(135deg, var(--blue-50), #f0f9ff);
+      border: 1px solid var(--blue-100);
+      border-radius: 12px;
+      text-align: center;
+    }
+
+    .contact-box h3 {
+      color: var(--blue-700);
+      margin-bottom: 0.8rem;
+      font-size: 1.15rem;
+    }
+
+    .contact-details {
+      display: flex;
+      justify-content: center;
+      gap: 2rem;
+      flex-wrap: wrap;
+    }
+
+    .contact-item {
+      font-size: 0.95rem;
+      color: var(--gray-600);
+    }
+
+    .contact-item strong {
+      color: var(--gray-800);
+    }
+
+    .footer-note {
+      position: absolute;
+      bottom: 2cm;
+      left: 2cm;
+      right: 2cm;
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--gray-400);
+      border-top: 1px solid var(--gray-200);
+      padding-top: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ══════════════════════════════════════════
+       PAGE 1 – COVER
+       ══════════════════════════════════════════ -->
+  <div class="page cover">
+    <div class="cover-logo">📅</div>
+    <h1>Stundenplan-System</h1>
+    <p class="cover-subtitle">Intelligente Stundenplanung für Ihre Schule</p>
+
+    <ul class="cover-features">
+      <li>Automatische Erstellung optimierter Stundenpläne in Sekunden</li>
+      <li>Transparente, nachvollziehbare Entscheidungen für jede Stunde</li>
+      <li>Faire Vertretungsplanung mit dokumentiertem Scoring</li>
+      <li>DSGVO-konform – alle Daten bleiben in Ihrer Schule</li>
+    </ul>
+
+    <div class="cover-version">Version 1.0 &middot; Desktop-Anwendung für Windows</div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PAGE 2 – PROBLEM & LÖSUNG
+       ══════════════════════════════════════════ -->
+  <div class="page">
+    <h2>Die Herausforderung</h2>
+    <p class="page-intro">
+      Die Stundenplanerstellung gehört zu den komplexesten organisatorischen Aufgaben einer Schule.
+      Unser System löst diese Herausforderung grundlegend.
+    </p>
+
+    <div class="two-column">
+      <div class="column-card problem">
+        <h3>Ohne digitale Lösung</h3>
+        <ul>
+          <li>Wochen manueller Planungsarbeit vor jedem Schuljahr</li>
+          <li>Fehleranfällig: Doppelbelegungen, vergessene Stunden</li>
+          <li>Keine Transparenz – warum hat Lehrkraft X den Slot Y?</li>
+          <li>Vertretungsplanung im Chaos bei spontanen Ausfällen</li>
+          <li>Fehlende Fairness: Wer vertritt immer und wer nie?</li>
+          <li>Wünsche der Lehrkräfte sind schwer zu berücksichtigen</li>
+          <li>Optimierung bestehender Pläne kaum möglich</li>
+        </ul>
+      </div>
+
+      <div class="column-card solution">
+        <h3>Mit Stundenplan-System</h3>
+        <ul>
+          <li>Automatische Planerstellung in wenigen Sekunden</li>
+          <li>Mathematisch garantiert: Keine Konflikte möglich</li>
+          <li>Jede Entscheidung wird protokolliert und ist erklärbar</li>
+          <li>Sofortige Vertretungsvorschläge mit Begründung</li>
+          <li>Nachvollziehbares Ranking-System für gerechte Verteilung</li>
+          <li>Sonderwünsche und Präferenzen direkt integriert</li>
+          <li>Bestehende Pläne importieren und nachoptimieren</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PAGE 3 – FEATURES
+       ══════════════════════════════════════════ -->
+  <div class="page">
+    <h2>Funktionsübersicht</h2>
+    <p class="page-intro">
+      Alles, was Sie für die professionelle Stundenplanung brauchen – in einer Anwendung.
+    </p>
+
+    <div class="feature-grid">
+      <div class="feature-card">
+        <div class="feature-icon">🧠</div>
+        <h3>Automatische Planerstellung</h3>
+        <p>KI-gestützter Solver erstellt optimale Stundenpläne unter Berücksichtigung aller Regeln, Räume und Verfügbarkeiten.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔄</div>
+        <h3>Vertretungsplanung</h3>
+        <p>Bei Lehrkraftausfall sofort die beste Vertretung finden – basierend auf 5 gewichteten Bewertungsfaktoren.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📊</div>
+        <h3>Stundentafel</h3>
+        <p>Wochenstunden pro Klasse und Fach individuell festlegen. Abweichungen vom Standard auf einen Blick erkennen.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🏖️</div>
+        <h3>Ferienverwaltung</h3>
+        <p>Schulferien per Bundesland importieren. Automatische Berücksichtigung bei Vertretungs&shy;planung.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📋</div>
+        <h3>Abwesenheitsmanagement</h3>
+        <p>Langzeitausfälle (Krankheit, Elternzeit, Fortbildung) erfassen und bei der Planung berücksichtigen.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⭐</div>
+        <h3>Belohnungssystem</h3>
+        <p>Engagement dokumentieren (8 Kategorien). Ranking-System sorgt für faire Berücksichtigung bei der Planung.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">🔀</div>
+        <h3>Planvergleich</h3>
+        <p>Zwei Planversionen nebeneinander vergleichen. Unterschiede sofort erkennen und die beste Variante wählen.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📈</div>
+        <h3>Transparenzbericht</h3>
+        <p>Score-Heatmap und Raumauslastung. Detaillierte Berichte zur Qualität jeder Planversion.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">⚙️</div>
+        <h3>Regelkonfiguration</h3>
+        <p>Planungsregeln individuell gewichten: Von „Hauptfächer vormittags" bis „Kein Sport nach Mathe". Alles anpassbar.</p>
+      </div>
+
+      <div class="feature-card">
+        <div class="feature-icon">📌</div>
+        <h3>Dashboard</h3>
+        <p>Alle wichtigen Kennzahlen im Überblick: Auslastung, Konfliktanzahl, Planstatus und Lehrkraft-Statistiken.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PAGE 4 – TRANSPARENZ & FAIRNESS
+       ══════════════════════════════════════════ -->
+  <div class="page">
+    <h2>Transparenz &amp; Fairness</h2>
+    <p class="page-intro">
+      Jede automatische Entscheidung ist dokumentiert, nachvollziehbar und erklärbar.
+    </p>
+
+    <div class="info-box blue">
+      <h3>Entscheidungsprotokoll</h3>
+      <p>
+        Jeder einzelne Stundenplaneintrag enthält ein maschinenlesbares Entscheidungsprotokoll.
+        Bei Rückfragen können Sie exakt nachvollziehen, warum eine Lehrkraft einer bestimmten
+        Stunde zugeordnet wurde – und welche Alternativen es gab.
+      </p>
+    </div>
+
+    <h3 style="margin-top: 1.2rem;">Vertretungs-Scoring: 5 Faktoren</h3>
+    <table class="scoring-table">
+      <thead>
+        <tr>
+          <th>Faktor</th>
+          <th>Gewichtung</th>
+          <th>Beschreibung</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Engagement</td>
+          <td>20%</td>
+          <td>Dokumentiertes Engagement der Lehrkraft</td>
+        </tr>
+        <tr>
+          <td>Vertretungslast</td>
+          <td>25%</td>
+          <td>Bisherige Vertretungen (weniger = bevorzugt)</td>
+        </tr>
+        <tr>
+          <td>Pädagogik</td>
+          <td>15%</td>
+          <td>Pädagogische Bewertung der Lehrkraft</td>
+        </tr>
+        <tr>
+          <td>Wochenbelastung</td>
+          <td>20%</td>
+          <td>Aktuelle Stunden/Woche (weniger = bevorzugt)</td>
+        </tr>
+        <tr>
+          <td>Fachqualifikation</td>
+          <td>20%</td>
+          <td>Qualifikation für das zu vertretende Fach</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="info-box amber">
+      <h3>Ranking-System</h3>
+      <p>
+        Lehrkräfte, die sich überdurchschnittlich engagieren (Mentorat, AG-Leitung,
+        Prüfungsaufsicht u.v.m.), erhalten Belohnungspunkte. Daraus ergibt sich ein Ranking
+        mit einem Multiplikator von 0,5× bis 1,5×, der ihre Wünsche bei der Planung stärker
+        gewichtet. So wird Fairness messbar und belohnbar.
+      </p>
+    </div>
+
+    <div class="example-box">
+      <strong>Beispiel: Vertretungsentscheidung</strong>
+      <p>
+        „Vertretung zugewiesen an Frau Müller aufgrund höherer Engagementwertung
+        (0,82 vs. 0,67), Fachqualifikation in Mathematik und geringerer aktueller
+        Wochenbelastung (22 vs. 26 Stunden)."
+      </p>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PAGE 5 – DATENSCHUTZ & TECHNIK
+       ══════════════════════════════════════════ -->
+  <div class="page">
+    <h2>Datenschutz &amp; Technik</h2>
+    <p class="page-intro">
+      Entwickelt für deutsche Schulen – mit höchsten Ansprüchen an Datenschutz und Zuverlässigkeit.
+    </p>
+
+    <div class="tech-grid">
+      <div class="tech-card">
+        <div class="tech-icon">🔒</div>
+        <h3>DSGVO-konform</h3>
+        <p>
+          Alle Daten bleiben lokal auf dem Schulrechner. Keine Cloud, keine externen
+          Server, keine Datenübertragung. Ihre Daten verlassen nie das Schulnetzwerk.
+        </p>
+        <span class="tech-highlight">100% lokal</span>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">📡</div>
+        <h3>Offline-first</h3>
+        <p>
+          Vollständige Funktionalität ohne Internetverbindung. Die Anwendung benötigt
+          keinerlei Netzwerkzugang – ideal für Schulnetzwerke mit Beschränkungen.
+        </p>
+        <span class="tech-highlight">Kein Internet nötig</span>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">💻</div>
+        <h3>Desktop-Anwendung</h3>
+        <p>
+          Native Windows-Anwendung mit moderner Oberfläche. Keine Browser-Abhängigkeit,
+          keine Ladezeiten, sofort einsatzbereit.
+        </p>
+        <span class="tech-highlight">Windows 10/11</span>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">⚡</div>
+        <h3>Rust-Performance</h3>
+        <p>
+          Der Planungssolver ist in Rust geschrieben – einer der schnellsten und
+          sichersten Programmiersprachen. Stundenpläne werden in Sekunden generiert.
+        </p>
+        <span class="tech-highlight">Sekundenschnell</span>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">🗄️</div>
+        <h3>Eingebettete Datenbank</h3>
+        <p>
+          SQLite-Datenbank direkt in der Anwendung. Keine separate Datenbankinstallation
+          nötig. Einfache Datensicherung durch Kopieren einer Datei.
+        </p>
+        <span class="tech-highlight">Zero-Config</span>
+      </div>
+
+      <div class="tech-card">
+        <div class="tech-icon">🔑</div>
+        <h3>Sichere Lizenzierung</h3>
+        <p>
+          Ed25519-Signaturen für manipulationssichere Schullizenzen. Einmalige Aktivierung,
+          kein Online-Zwang, kein Abo.
+        </p>
+        <span class="tech-highlight">Einmalkauf</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════
+       PAGE 6 – NÄCHSTE SCHRITTE
+       ══════════════════════════════════════════ -->
+  <div class="page">
+    <h2>Nächste Schritte</h2>
+    <p class="page-intro">
+      Überzeugen Sie sich selbst – wir begleiten Sie von der ersten Demo bis zum Echtbetrieb.
+    </p>
+
+    <ul class="steps-list">
+      <li>
+        <div class="step-number">1</div>
+        <div class="step-content">
+          <h3>Kostenlose Demo</h3>
+          <p>
+            Testen Sie das Stundenplan-System mit Beispieldaten Ihrer Schule.
+            Wir zeigen Ihnen live, wie ein optimierter Plan in Sekunden entsteht.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div class="step-number">2</div>
+        <div class="step-content">
+          <h3>Testphase</h3>
+          <p>
+            Nutzen Sie die Software 4 Wochen kostenlos mit Ihren echten Daten.
+            Kein Risiko, keine Verpflichtung.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div class="step-number">3</div>
+        <div class="step-content">
+          <h3>Schullizenz</h3>
+          <p>
+            Eine Lizenz pro Schule – unbegrenzte Nutzer, keine laufenden Kosten.
+            Inklusive Updates und Support für das erste Jahr.
+          </p>
+        </div>
+      </li>
+      <li>
+        <div class="step-number">4</div>
+        <div class="step-content">
+          <h3>Schulung &amp; Support</h3>
+          <p>
+            Wir schulen Ihr Team vor Ort oder per Video. Bei Fragen sind wir
+            per E-Mail und Telefon erreichbar.
+          </p>
+        </div>
+      </li>
+    </ul>
+
+    <div class="contact-box">
+      <h3>Interesse geweckt? Kontaktieren Sie uns!</h3>
+      <div class="contact-details">
+        <div class="contact-item">
+          <strong>E-Mail:</strong> kontakt@beispiel.de
+        </div>
+        <div class="contact-item">
+          <strong>Telefon:</strong> +49 (0) XXX XXXXXXX
+        </div>
+        <div class="contact-item">
+          <strong>Web:</strong> www.beispiel.de
+        </div>
+      </div>
+    </div>
+
+    <div class="footer-note">
+      Stundenplan-System v1.0 &middot; Entwickelt in Deutschland &middot; DSGVO-konform
+    </div>
+  </div>
+
+</body>
+</html>

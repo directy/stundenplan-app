@@ -1,4 +1,5 @@
 # CLAUDE.md – Stundenplan-System
+
 > Diese Datei wird von Claude Code automatisch gelesen. Sie beschreibt das Projekt,
 > die Architektur, Konventionen und typische Aufgaben.
 
@@ -6,30 +7,35 @@
 
 ## Projektübersicht
 
-**Name:** Stundenplan-System  
+**Name:** Stundenplan-System (v1.0)
 **Ziel:** Offline-fähige Desktop-Anwendung zur automatisierten Erstellung und Optimierung
-von Stunden- und Vertretungsplänen für Schulen.  
+von Stunden- und Vertretungsplänen für Schulen.
 **Zielgruppe:** Lehrkräfte und Schulleitung
 
 **Kerndifferenzierungsmerkmale:**
-- Vollständige Transparenz jeder Planungsentscheidung (Argumentationsbericht)
-- Profilbasierte, gewichtete Vertretungspriorisierung
+- Vollständige Transparenz jeder Planungsentscheidung (Decision-Log in jedem Eintrag)
+- Profilbasierte, gewichtete Vertretungspriorisierung mit 5-Faktoren-Scoring
+- Ranking-System mit Belohnungspunkten (8 Kategorien) → Multiplikator 0.5–1.5×
+- Sonderwünsche der Lehrkräfte (6 Typen, 3 Prioritäten) → Solver-integriert
+- Stundentafel (Wochenstunden-Override pro Klasse×Fach)
+- Lehrer-Klassen-Zuordnung (Hard: Kann / Soft: Möchte)
+- Ed25519-Lizenzsystem mit eigenem License-Manager-GUI
 - Offline-first, DSGVO-konform, kein Cloud-Zwang
-- Optimierung bestehender Pläne (Import + Re-Optimierung)
 
 ---
 
 ## Tech-Stack
 
 | Schicht | Technologie |
-|--------|------------|
+|---------|------------|
 | Frontend | React 18 + TypeScript |
-| State | Zustand |
-| Styling | Tailwind CSS |
-| Drag & Drop | @dnd-kit |
-| Desktop-Wrapper | Tauri 2 |
+| State | Zustand (18 Stores) |
+| Styling | Tailwind CSS v4 |
+| Drag & Drop | @dnd-kit (nur ScheduleGrid) |
+| Desktop-Wrapper | Tauri 2 (Plugins: opener, dialog, fs) |
 | Backend/Solver | Rust (direkt in Tauri) |
 | Datenbank | SQLite via rusqlite (bundled) |
+| Lizenz | Ed25519 via `license_core` Crate |
 | Build | Vite |
 
 ---
@@ -37,64 +43,78 @@ von Stunden- und Vertretungsplänen für Schulen.
 ## Projektstruktur
 
 ```
-stundenplan-app/
-├── src/                          # React Frontend
-│   ├── components/
-│   │   ├── grid/                 # Stundenplan-Grid (Drag & Drop)
-│   │   ├── teacher/              # Lehrkraft-Verwaltung
-│   │   ├── substitution/         # Vertretungsmodul
-│   │   ├── rules/                # Constraint-/Regelmanagement
-│   │   └── reports/              # Transparenzbericht
-│   ├── store/                    # Zustand Stores
-│   │   ├── scheduleStore.ts      # Planeinträge, Generierung
-│   │   ├── teacherStore.ts       # Lehrkräfte, Profile
-│   │   └── rulesStore.ts         # Constraint-Konfiguration
-│   ├── hooks/                    # Custom Hooks
-│   ├── types/                    # TypeScript-Interfaces
-│   └── App.tsx
-│
-└── src-tauri/                    # Rust Backend
-    └── src/
-        ├── db/
-        │   ├── connection.rs     # SQLite-Verbindung + PRAGMA-Setup
-        │   ├── schema.rs         # CREATE TABLE Definitionen
-        │   └── migrations.rs     # Schema-Versionierung
-        ├── solver/
-        │   ├── greedy.rs         # Phase 1: Greedy-Initiallösung
-        │   ├── tabu_search.rs    # Phase 2: Tabu Search Optimierung
-        │   ├── constraints.rs    # Hard & Soft Constraint Definitionen
-        │   └── scorer.rs         # Planqualitäts-Scoring
-        ├── substitution/
-        │   └── prioritizer.rs    # Vertretungs-Scoring-Logik
-        ├── commands/             # Tauri Commands (Brücke Frontend ↔ Rust)
-        │   ├── schedule.rs
-        │   ├── teacher.rs
-        │   └── substitution.rs
-        └── models/               # Rust-Datenstrukturen (Serde)
+src/                              # React Frontend
+├── components/
+│   ├── absence/                  # Abwesenheitsverwaltung
+│   ├── class/                    # Klassen + Stundentafel (ClassCurriculumEditor)
+│   ├── comparison/               # Planvergleich (Grid, Stats)
+│   ├── dashboard/                # Dashboard-Übersicht
+│   ├── grid/                     # Stundenplan-Grid (DnD, EntryDetail, ViewSelector)
+│   ├── help/                     # Hilfe-Seite
+│   ├── holiday/                  # Ferienverwaltung
+│   ├── license/                  # LicenseGate
+│   ├── reports/                  # Berichte (ScoreHeatmap, RoomUtilization)
+│   ├── room/                     # Raumverwaltung
+│   ├── rules/                    # Constraints (RuleForm, SubjectPairEditor)
+│   ├── shared/                   # Modal, ConfirmDialog, Toast, Spinner, Tooltip, SeedDataButton
+│   ├── subject/                  # Fächerverwaltung
+│   ├── substitution/             # Vertretungsmodul
+│   └── teacher/                  # Lehrkräfte (Preferences, Rewards, Wishes, ClassPanel, Ranking)
+├── store/                        # 18 Zustand Stores
+├── types/                        # TypeScript-Interfaces (index, reward, wish, teacherClass)
+├── utils/                        # constraintLabels, wishLabels
+└── App.tsx                       # 14 Tabs
+
+src-tauri/src/                    # Rust Backend
+├── commands/                     # 19 Command-Module (106 Commands in lib.rs)
+│   ├── teacher.rs, subject.rs, class.rs, room.rs, time_slot.rs
+│   ├── schedule.rs, constraint.rs, preference.rs
+│   ├── substitution.rs, holiday.rs, absence.rs
+│   ├── report.rs, seed.rs, reward.rs, wish.rs
+│   ├── license.rs, setting.rs, class_subject.rs, teacher_class.rs
+│   └── mod.rs
+├── db/                           # Datenbankschicht (1 Datei pro Tabelle)
+├── models/                       # Rust-Datenstrukturen (Serde)
+├── solver/
+│   ├── greedy.rs                 # Greedy-Initiallösung
+│   ├── tabu_search.rs            # Tabu-Search-Optimierung
+│   ├── constraints.rs            # Hard & Soft Constraint Logik
+│   ├── scorer.rs                 # Planqualitäts-Scoring
+│   └── types.rs                  # Solver-Datentypen
+├── substitution/mod.rs           # Vertretungs-Scoring
+├── license/mod.rs                # Ed25519-Lizenzvalidierung
+├── error.rs                      # AppError (thiserror)
+└── lib.rs                        # Tauri-Setup + invoke_handler (106 Commands)
+
+tools/license-manager/            # Standalone Tauri-App zur Lizenzerstellung
 ```
 
 ---
 
-## Datenmodell (SQLite)
-
-**Kerntabellen:**
+## Datenmodell (SQLite – 18 Tabellen)
 
 | Tabelle | Beschreibung |
-|--------|-------------|
-| `teachers` | Lehrkräfte mit Scores (engagement, pedagogical, part_time_quota) |
-| `subjects` | Fächer mit Raumtypbindung |
-| `teacher_subjects` | Qualifikationszuordnung |
-| `classes` | Klassen mit Klassenlehrer-Referenz |
-| `rooms` | Räume mit Typ (standard, sports, lab, music) |
-| `time_slots` | Abstrakte Zeitslots (day_of_week 1–5, period 1–9) |
+|---------|-------------|
+| `teachers` | Lehrkräfte (engagement_score, pedagogical_score, part_time_quota, max_hours_per_day) |
+| `subjects` | Fächer mit room_type (standard/sports/lab/music) + weekly_hours_default |
+| `teacher_subjects` | M:N Qualifikationszuordnung |
+| `classes` | Klassen mit grade_level, class_teacher_id, student_count |
+| `rooms` | Räume mit room_type + capacity |
+| `time_slots` | 5 Tage × 9 Stunden (day_of_week 1–5, period 1–9) |
 | `schedules` | Plan-Versionen (draft/active/archived) |
-| `schedule_entries` | Einzelstunden inkl. `decision_log` (JSON) |
-| `constraint_rules` | Konfigurierbare Soft Constraints mit Gewichtung |
-| `substitution_history` | Vertretungsprotokoll mit Scoring-Details |
-| `teacher_preferences` | Wunschzeiten, freie Tage |
+| `schedule_entries` | Einzelstunden mit `decision_log` (JSON-Transparenz) |
+| `constraint_rules` | Soft Constraints mit weight, sort_order, scope_type/scope_id, parameters |
+| `substitution_history` | Vertretungsprotokoll mit score + decision_reason |
+| `teacher_preferences` | Wunschzeiten (preferred/unavailable) pro day×period |
+| `holidays` | Schulferien (Import via JSON, school_year + state) |
+| `teacher_absences` | Langzeitabwesenheiten (illness/maternity/sabbatical/training/other) |
+| `reward_points` | Belohnungspunkte (8 Kategorien, points + reason + date) |
+| `teacher_wishes` | Sonderwünsche (6 Typen, 3 Prioritäten, parameters JSON) |
+| `class_subjects` | Stundentafel-Override (weekly_hours pro Klasse×Fach) |
+| `teacher_class_restrictions` | Lehrer-Klassen (preference = Soft, qualification = Hard) |
+| `app_settings` | Key-Value-Einstellungen (use_engagement_score, use_pedagogical_score) |
 
-**Wichtig:** Jeder `schedule_entry` enthält ein `decision_log`-Feld (JSON), das dokumentiert,
-warum genau diese Zuweisung getroffen wurde (Transparenzprinzip).
+**Schema-Version:** 6 (via `migrations.rs`)
 
 ---
 
@@ -102,166 +122,223 @@ warum genau diese Zuweisung getroffen wurde (Transparenzprinzip).
 
 Das Stundenplanproblem ist ein **Constraint Satisfaction Problem (CSP), NP-hart**.
 
-**3-Phasen-Ansatz (in `src-tauri/src/solver/`):**
+**2-Phasen-Ansatz (in `src-tauri/src/solver/`):**
 
-```
-Phase 1 → greedy.rs
-  Schnelle Initiallösung durch gewichtete Zufallszuweisung
-  Reihenfolge: schwierigste Constraints zuerst
+| Phase | Datei | Beschreibung |
+|-------|-------|-------------|
+| 1 – Greedy | `greedy.rs` | Schnelle Initiallösung, schwierigste Constraints zuerst |
+| 2 – Tabu Search | `tabu_search.rs` | Iterative Verbesserung, Tabu-Liste verhindert Zyklen |
 
-Phase 2 → tabu_search.rs
-  Iterative Verbesserung durch Nachbarschaftssuche
-  Tabu-Liste verhindert Zyklen
-  Optimiert Soft Constraints (Gewichtung aus constraint_rules-Tabelle)
+**Hard Constraints (zwingend):**
+1. Keine Doppelbelegung Lehrkraft / Raum / Klasse
+2. Fachstunden-Soll je Woche (aus `class_subjects` oder `weekly_hours_default`)
+3. Raumtypbindung (Sport → Sporthalle)
+4. Maximalstunden/Tag je Lehrkraft (part_time_quota-skaliert)
+5. Teacher-Class Qualifikation (nur zugeordnete Klassen, wenn `qualification`-Einträge existieren)
 
-Phase 3 (optional) → genetischer Algorithmus
-  Für Multi-Objective-Optimierung (noch nicht implementiert)
-```
+**Soft Constraints (gewichtbar, aus `constraint_rules`-Tabelle):**
 
-**Hard Constraints (zwingend, in `constraints.rs`):**
-- Keine Doppelbelegung Lehrkraft / Raum / Klasse
-- Fachstunden-Soll je Woche
-- Raumtypbindung (Sport → Sporthalle)
-- Maximalstunden/Tag je Lehrkraft
-- Gesetzliche Pausenregelungen
+| Typ | Beschreibung |
+|-----|-------------|
+| `forbidden_subject_sequence` | Verbotene Fächerfolge (z.B. Sport→Mathe), konfigurierbar via SubjectPairEditor |
+| `even_weekly_distribution` | Gleichmäßige Wochenverteilung |
+| `avoid_edge_periods` | Randstunden (1. + letzte) vermeiden |
+| `minimize_gaps` | Hohlstunden minimieren |
+| `class_teacher_first_period` | Klassenleiter bevorzugt 1. Stunde |
+| `main_subjects_morning` | Hauptfächer vormittags |
+| `teacher_preferences` | Wunschzeiten der Lehrkräfte |
+| `teacher_wishes` | Sonderwünsche (× Ranking-Multiplikator) |
 
-**Soft Constraints (gewichtbar, aus DB geladen):**
-- Kein Sport nach Mathe (und umgekehrt)
-- Gleichmäßige Wochenverteilung
-- Randstunden vermeiden
-- Hohlstunden minimieren
-- Klassenleiter bevorzugt 1. Stunde
-- Hauptfächer vormittags
-- Wunschzeiten der Lehrkräfte
+**Scope-System:** Jede Regel kann `scope_type` (global/class/teacher/room) + `scope_id` haben.
 
----
+**Ranking-Multiplikator:** Belohnungspunkte → Rang → Multiplikator (0.5–1.5×), verstärkt
+Präferenz- und Wunsch-Scores im Solver.
 
-## Vertretungsmodul (`substitution/prioritizer.rs`)
-
-**Scoring-Formel je Kandidat:**
-
-```
-score = (engagement_score × w1)
-      + (1 - substitution_load × w2)
-      + (pedagogical_score × w3)
-      + (1 - weekly_load × w4)
-      + (subject_qualification × w5)
-```
-
-**Ausgabe:** Textuelle Entscheidungsbegründung, z.B.:
-> „Vertretung zugewiesen an Frau Müller aufgrund höherer Engagementwertung
-> (0,82 vs. 0,67) und geringerer aktueller Wochenbelastung."
-
-Diese Begründung wird in `substitution_history.decision_reason` gespeichert.
+**class_subject_overrides:** Solver liest `class_subjects`-Tabelle und nutzt Override-Stunden
+statt `weekly_hours_default` falls vorhanden.
 
 ---
 
-## Tauri Commands (Frontend ↔ Backend)
+## Vertretungsmodul (`substitution/mod.rs`)
 
-Alle Rust-Funktionen werden als Tauri Commands exponiert.
-Im Frontend via `invoke()` aufgerufen:
+**Scoring-Formel (5 Faktoren, Standardgewichte):**
 
-```typescript
-import { invoke } from '@tauri-apps/api/core';
+| Faktor | Gewicht | Beschreibung |
+|--------|---------|-------------|
+| engagement_score | 0.20 | Engagement der Lehrkraft (togglebar via Settings) |
+| 1 − substitution_load | 0.25 | Umgekehrte bisherige Vertretungslast |
+| pedagogical_score | 0.15 | Pädagogische Bewertung (togglebar via Settings) |
+| 1 − weekly_load | 0.20 | Umgekehrte aktuelle Wochenbelastung |
+| subject_qualification | 0.20 | Fachqualifikation (1.0 wenn qualifiziert) |
 
-// Beispiele
-const result = await invoke('generate_schedule', { name: 'Stundenplan WS 2025' });
-const entries = await invoke('get_schedule_entries', { scheduleId: 1 });
-const candidates = await invoke('get_substitution_candidates', { entryId: 42, date: '2025-09-15' });
-```
+**Features:** Abwesenheits-Filter, Ferien-Check, deutsche Entscheidungsbegründung,
+`use_engagement_score`/`use_pedagogical_score` Toggles via app_settings.
 
-**Konvention:** Command-Namen in `snake_case` (Rust-seitig), Parameter in `camelCase` (TS-seitig via Serde).
+---
+
+## Lizenzsystem
+
+| Komponente | Beschreibung |
+|-----------|-------------|
+| `license_core` | Shared Crate: Ed25519-Signatur, Payload (school, expiry, features) |
+| `license/mod.rs` | Validierung beim App-Start, LicenseStatus in Tauri-State |
+| `LicenseGate.tsx` | Frontend-Gate: sperrt App wenn ungültig/abgelaufen |
+| `tools/license-manager/` | Standalone Tauri-App zum Erstellen + Signieren von Lizenzen |
+
+---
+
+## Belohnungssystem (Rewards + Ranking)
+
+**8 Kategorien:** extra_tasks, mentoring, event_organization, training, committee_work,
+exam_supervision, project_lead, other
+
+**Ranking:** Alle Lehrkräfte werden nach Gesamtpunkten sortiert → Rang → Multiplikator (0.5–1.5×).
+Der Multiplikator verstärkt Präferenz- und Wunsch-Scores im Solver.
+
+**UI:** RewardPointsPanel (pro Lehrer-Tab), TeacherRankingView (Gesamtübersicht)
+
+---
+
+## Sonderwünsche (Teacher Wishes)
+
+**6 Wunschtypen:** prefer_morning, prefer_afternoon, free_day, max_consecutive,
+compact_schedule, custom
+
+**3 Prioritäten:** low, medium, high (Gewichtungsfaktor)
+
+**Solver-Integration:** `teacher_wishes`-Constraint in constraints.rs, Score × Ranking-Multiplikator.
+
+---
+
+## Stundentafel (Class Subjects)
+
+`class_subjects`-Tabelle: Override der `weekly_hours_default` pro Klasse×Fach.
+Fallback auf `subjects.weekly_hours_default` wenn kein Override existiert.
+
+**UI:** ClassCurriculumEditor (Matrix Klassen×Fächer, Inline-Edit, Blau=Override, Grau=Default)
+
+**Seed:** `seed_class_subjects()` generiert realistische Stundentafeln für Gymnasium/Grundschule/Mittelschule.
+
+---
+
+## Lehrer-Klassen-Zuordnung
+
+| Typ | Wirkung |
+|-----|--------|
+| `qualification` | **Hard Constraint** – Lehrkraft wird NUR für diese Klassen eingeplant |
+| `preference` | **Soft Constraint** – Lehrkraft wird bevorzugt für diese Klassen eingeplant |
+
+**UI:** TeacherClassPanel (Checkbox-Grid mit Typ-Selector: Möchte/Kann)
+
+---
+
+## UI-Tabs (App.tsx)
+
+| Tab | Komponente | Beschreibung |
+|-----|-----------|-------------|
+| Dashboard | DashboardView | Übersicht, Statistiken |
+| Stundenplan | ScheduleView | Grid mit DnD, Generierung, Optimierung |
+| Lehrkräfte | TeacherList | CRUD + 5 Sub-Tabs (Fächer, Präferenzen, Belohnungen, Wünsche, Klassen) |
+| Fächer | SubjectList | CRUD |
+| Klassen | ClassList | CRUD + Stundentafel-Editor |
+| Räume | RoomList | CRUD |
+| Regeln | RulesPanel | Constraint-Verwaltung (Gewicht-Sortierung, SubjectPairEditor) |
+| Ferien | HolidayView | Import/Anzeige |
+| Abwesenheiten | AbsenceView | CRUD |
+| Vertretung | SubstitutionView | Kandidaten-Scoring |
+| Planvergleich | ComparisonView | 2 Pläne nebeneinander vergleichen |
+| Berichte | ReportView | ScoreHeatmap, RoomUtilization |
+| Einstellungen | SettingsView | Globale Toggles (Engagement/Pädagogik) |
+| Hilfe | HelpView | Bedienungsanleitung |
+
+---
+
+## Tauri Commands
+
+Alle Commands in `src-tauri/src/lib.rs` unter `invoke_handler![]` registriert.
+106 Commands über 19 Module. Frontend-Aufruf via `invoke()`.
+
+**Konvention:** Command-Namen `snake_case` (Rust), Parameter `camelCase` (TS via Serde).
 
 ---
 
 ## Entwicklungskonventionen
 
 ### Rust
-- Fehlerbehandlung via `thiserror` (eigene Error-Typen) + `anyhow` für Propagierung
+- Fehlerbehandlung via `thiserror` (`AppError`) + `?`-Propagierung
 - Alle DB-Operationen in `src/db/`, nie direkt in Commands
-- Jede Solver-Entscheidung muss loggbar sein (Decision-Log-Prinzip)
-- `rayon` für parallelisierbare Solver-Iterationen nutzen
-- Keine `unwrap()` in Produktionscode – immer `?` oder explizites Handling
+- Decision-Log-Prinzip: jede Solver-Entscheidung ist loggbar
+- Keine `unwrap()` in Produktionscode
 
 ### TypeScript / React
-- Strikte TypeScript-Typen, keine `any`
-- Alle Backend-Calls ausschließlich über Zustand-Stores (nie direkt in Komponenten)
-- Komponenten sind zustandslos wo möglich (Daten kommen aus Stores)
-- Tailwind für Styling, keine inline styles
+- Strikte Typen, keine `any`
+- Alle Backend-Calls über Zustand-Stores (nie direkt in Komponenten)
+- Tailwind CSS v4 für Styling
 
 ### Allgemein
-- Deutsche UI-Texte (Zielgruppe: deutsche Schulen)
-- Englische Code-Bezeichner (Variablen, Funktionen, Dateien)
-- Kommentare auf Deutsch für fachliche Logik, Englisch für technische Details
+- Deutsche UI-Texte, englische Code-Bezeichner
+- Kommentare: Deutsch für fachliche Logik, Englisch für technische Details
 
 ---
 
-## Aktuelle Entwicklungsphase
+## Entwicklungsphase
 
-| Phase | Status | Beschreibung |
-|-------|--------|-------------|
-| 1 – Setup | ✅ Geplant | Tauri 2 + React + SQLite Grundgerüst |
-| 2 – Datenmodell | 🔄 In Arbeit | Schema, Migrationen, CRUD-Commands |
-| 3 – Basis-Solver | ⏳ Offen | Greedy-Algorithmus |
-| 4 – UI Grid | ⏳ Offen | Drag & Drop Planansicht |
-| 5 – Vertretung | ⏳ Offen | Scoring + Priorisierungslogik |
-| 6 – Transparenz | ⏳ Offen | Entscheidungsbericht |
-| 7 – Optimierung | ⏳ Offen | Tabu Search |
-| 8 – Pilotphase | ⏳ Offen | Test in Schule |
+| Phase | Status |
+|-------|--------|
+| 1 – Tauri + React + SQLite Setup | ✅ |
+| 2 – Datenmodell + CRUD | ✅ |
+| 3 – Greedy-Solver | ✅ |
+| 4 – UI Grid + DnD | ✅ |
+| 5 – Vertretungsmodul | ✅ |
+| 6 – Transparenzbericht | ✅ |
+| 7 – Tabu Search | ✅ |
+| 8 – Lizenzsystem | ✅ |
 
 ---
 
-## Häufige Aufgaben für Claude Code
+## Häufige Aufgaben
 
-### Neue Tauri Command hinzufügen
-1. Funktion in `src-tauri/src/commands/<modul>.rs` erstellen
-2. In `src-tauri/src/main.rs` unter `invoke_handler![]` registrieren
+### Neue Tauri Command
+1. Funktion in `src-tauri/src/commands/<modul>.rs`
+2. In `src-tauri/src/lib.rs` unter `invoke_handler![]` registrieren
 3. TypeScript-Typ in `src/types/` ergänzen
-4. Im passenden Zustand-Store als Methode einbauen
+4. Im passenden Zustand-Store einbauen
 
-### Neue DB-Tabelle hinzufügen
-1. `CREATE TABLE` in `src-tauri/src/db/schema.rs` (oder `schema.sql`)
-2. Rust-Struct in `src-tauri/src/models/<modul>.rs` mit `#[derive(Serialize, Deserialize)]`
-3. Migration in `migrations.rs` versionieren
-4. CRUD-Funktionen in `src-tauri/src/db/` implementieren
+### Neue DB-Tabelle
+1. `CREATE TABLE` in `src-tauri/src/db/schema.rs`
+2. Migration in `migrations.rs` (Version hochzählen)
+3. Rust-Struct in `src-tauri/src/models/`
+4. CRUD in `src-tauri/src/db/`
 
-### Neuen Soft Constraint hinzufügen
-1. Regel-Typ in `constraint_rules`-Tabelle als Eintrag definieren
-2. Logik in `src-tauri/src/solver/constraints.rs` implementieren
+### Neuer Soft Constraint
+1. Regel-Typ in `constraint_rules` definieren
+2. Logik in `solver/constraints.rs` implementieren
 3. Gewichtung aus DB laden (nicht hardcoden)
-4. Im Scorer (`scorer.rs`) einbeziehen
+4. Im Scorer einbeziehen
+5. Seed-Daten in `constraints::seed_default_constraints` ergänzen
 
 ---
 
 ## Build & Dev
 
 ```bash
-# Entwicklung starten
-npm run tauri dev
-
-# Produktions-Build
-npm run tauri build
-
-# Nur Frontend
-npm run dev
-
-# Rust-Tests
-cd src-tauri && cargo test
-
-# Rust-Linting
-cd src-tauri && cargo clippy
+npm run tauri dev      # Entwicklung
+npm run tauri build    # Produktions-Build
+npm run dev            # Nur Frontend
+cd src-tauri && cargo test    # Rust-Tests (71 Tests)
+cd src-tauri && cargo clippy  # Linting
 ```
 
 ---
 
-## Wichtige Designprinzipien
+## Designprinzipien
 
-1. **Offline-First:** Keine Netzwerkaufrufe, alles lokal in SQLite
-2. **Transparenz:** Jede automatische Entscheidung wird dokumentiert und ist erklärbar
-3. **Gewichtbarkeit:** Soft Constraints sind nicht fest codiert, sondern per UI konfigurierbar
-4. **Fairness:** Vertretungen werden nach nachvollziehbaren, dokumentierten Kriterien verteilt
-5. **DSGVO:** Alle Daten bleiben auf dem Gerät der Schule
+1. **Offline-First:** Alles lokal in SQLite, keine Netzwerkaufrufe
+2. **Transparenz:** Jede Entscheidung dokumentiert und erklärbar (decision_log)
+3. **Gewichtbarkeit:** Soft Constraints per UI konfigurierbar (Gewicht + Scope)
+4. **Fairness:** Vertretungen + Planungswünsche über Ranking-System gewichtet
+5. **DSGVO:** Alle Daten auf dem Schulgerät, kein Cloud-Zwang
 
 ---
 
-*Letzte Aktualisierung: Phase 1 – Projektsetup*
+*Letzte Aktualisierung: v1.0 – Alle Phasen abgeschlossen*
