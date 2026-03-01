@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { invoke } from "@tauri-apps/api/core";
 import { useClassCurriculumStore } from "../../store/classCurriculumStore";
 import { useSubjectStore } from "../../store/subjectStore";
 import { useClassStore } from "../../store/classStore";
@@ -15,12 +16,28 @@ export function ClassCurriculumEditor() {
     subjectId: number;
     value: string;
   } | null>(null);
+  const [source, setSource] = useState("");
+  const [sourceEditing, setSourceEditing] = useState(false);
+  const [sourceValue, setSourceValue] = useState("");
 
   useEffect(() => {
     fetchAll();
     fetchSubjects();
     fetchClasses();
   }, [fetchAll, fetchSubjects, fetchClasses]);
+
+  useEffect(() => {
+    invoke<{ key: string; value: string }[]>("get_all_settings").then((settings) => {
+      const s = settings.find((st) => st.key === "curriculum_source");
+      if (s) setSource(s.value);
+    });
+  }, []);
+
+  const saveSource = async () => {
+    await invoke("set_setting", { key: "curriculum_source", value: sourceValue });
+    setSource(sourceValue);
+    setSourceEditing(false);
+  };
 
   const getHours = useCallback(
     (classId: number, subjectId: number): number | null => {
@@ -120,6 +137,47 @@ export function ClassCurriculumEditor() {
             Klicken Sie auf eine Zelle, um die Wochenstunden anzupassen. Graue
             Werte sind Standardvorgaben des Fachs.
           </p>
+          <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
+            <span>Quelle:</span>
+            {sourceEditing ? (
+              <span className="flex items-center gap-1">
+                <input
+                  type="text"
+                  value={sourceValue}
+                  onChange={(e) => setSourceValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveSource();
+                    if (e.key === "Escape") setSourceEditing(false);
+                  }}
+                  placeholder="z.B. Sächsischer Lehrplan 2024"
+                  className="border border-blue-400 rounded px-1.5 py-0.5 text-xs w-64 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                  autoFocus
+                />
+                <button
+                  onClick={saveSource}
+                  className="text-blue-600 hover:text-blue-800"
+                >
+                  Speichern
+                </button>
+                <button
+                  onClick={() => setSourceEditing(false)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  Abbrechen
+                </button>
+              </span>
+            ) : (
+              <button
+                onClick={() => {
+                  setSourceValue(source);
+                  setSourceEditing(true);
+                }}
+                className="text-gray-600 hover:text-blue-600 hover:underline italic"
+              >
+                {source || "Keine Quelle hinterlegt – klicken zum Bearbeiten"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 

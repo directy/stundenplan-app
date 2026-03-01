@@ -16,6 +16,7 @@ import { HelpView } from "./components/help/HelpView";
 import { DashboardView } from "./components/dashboard/DashboardView";
 import { ComparisonView } from "./components/comparison/ComparisonView";
 import { SetupView } from "./components/settings/SetupView";
+import { ClassCurriculumEditor } from "./components/class/ClassCurriculumEditor";
 
 type Tab =
   | "dashboard"
@@ -23,6 +24,7 @@ type Tab =
   | "teachers"
   | "subjects"
   | "classes"
+  | "curriculum"
   | "rooms"
   | "rules"
   | "holidays"
@@ -39,6 +41,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "teachers", label: "Lehrkräfte" },
   { id: "subjects", label: "Fächer" },
   { id: "classes", label: "Klassen" },
+  { id: "curriculum", label: "Stundentafel" },
   { id: "rooms", label: "Räume" },
   { id: "rules", label: "Regeln" },
   { id: "holidays", label: "Ferien" },
@@ -98,6 +101,7 @@ function App() {
         {activeTab === "teachers" && <TeacherList />}
         {activeTab === "subjects" && <SubjectList />}
         {activeTab === "classes" && <ClassList />}
+        {activeTab === "curriculum" && <ClassCurriculumEditor />}
         {activeTab === "rooms" && <RoomList />}
         {activeTab === "rules" && <RulesPanel />}
         {activeTab === "holidays" && <HolidayView />}

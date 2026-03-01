@@ -91,7 +91,7 @@ pub fn get_substitution_candidates(
             0.0
         };
 
-        let engagement_component = teacher.engagement_score * w_engagement;
+        let engagement_component = (1.0 - teacher.engagement_score) * w_engagement;
         let sub_load_component = (1.0 - sub_load_normalized) * W_SUBSTITUTION_LOAD;
         let pedagogical_component = teacher.pedagogical_score * w_pedagogical;
         let weekly_load_component = (1.0 - weekly_normalized) * W_WEEKLY_LOAD;

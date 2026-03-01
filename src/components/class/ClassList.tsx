@@ -6,7 +6,6 @@ import { Modal } from "../shared/Modal";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { Spinner } from "../shared/Spinner";
 import { ClassForm } from "./ClassForm";
-import { ClassCurriculumEditor } from "./ClassCurriculumEditor";
 
 export function ClassList() {
   const { classes, loading, error, fetchClasses, createClass, updateClass, deleteClass } =
@@ -17,7 +16,6 @@ export function ClassList() {
   const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [formLoading, setFormLoading] = useState(false);
-  const [showCurriculum, setShowCurriculum] = useState(false);
 
   useEffect(() => {
     fetchClasses();
@@ -65,16 +63,6 @@ export function ClassList() {
         <h2 className="text-lg font-semibold text-gray-800">Klassen</h2>
         <div className="flex items-center gap-3">
           <span className="text-sm text-gray-500">{classes.length} Einträge</span>
-          <button
-            onClick={() => setShowCurriculum(!showCurriculum)}
-            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
-              showCurriculum
-                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            {showCurriculum ? "Stundentafel ausblenden" : "Stundentafel anzeigen"}
-          </button>
           <button
             onClick={() => setShowForm(true)}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
@@ -125,8 +113,6 @@ export function ClassList() {
           </table>
         </div>
       )}
-
-      {showCurriculum && <ClassCurriculumEditor />}
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Neue Klasse">
         <ClassForm

@@ -351,12 +351,37 @@ fn generate_neighborhood(
 // Hauptfunktion
 // ============================================================================
 
-/// Optimiert einen bestehenden Stundenplan mittels Tabu Search.
+/// Wrapper: Optimiert einen Stundenplan in einem Schritt (für Tests und direkte Aufrufe).
+/// In Tauri-Commands sollte stattdessen load_tabu_input/solve_tabu/write_tabu_results
+/// separat aufgerufen werden, um den DB-Mutex zwischen den Phasen freizugeben.
 pub fn optimize(
     conn: &Connection,
     schedule_id: i64,
     config: TabuSearchConfig,
 ) -> Result<OptimizationResult, AppError> {
+    let input = load_tabu_input(conn, schedule_id)?;
+    let solution = solve_tabu(input, config);
+    let entries_modified = write_tabu_results(conn, &solution)?;
+
+    let improvement = if solution.initial_score > 0.0 {
+        ((solution.best_score - solution.initial_score) / solution.initial_score) * 100.0
+    } else {
+        0.0
+    };
+
+    Ok(OptimizationResult {
+        initial_score: (solution.initial_score * 1000.0).round() / 1000.0,
+        final_score: (solution.best_score * 1000.0).round() / 1000.0,
+        improvement_percent: (improvement * 10.0).round() / 10.0,
+        iterations_run: solution.iterations_run,
+        moves_applied: solution.moves_applied,
+        entries_modified,
+    })
+}
+
+/// Phase 1: Validiert Schedule, lädt Stammdaten und Entry Snapshots.
+/// Braucht DB-Zugriff (conn). Sollte unter Mutex-Lock aufgerufen werden.
+pub fn load_tabu_input(conn: &Connection, schedule_id: i64) -> Result<TabuInput, AppError> {
     // 1. Validierung
     let _schedule = db::schedules::get_schedule(conn, schedule_id)?;
 
@@ -365,10 +390,9 @@ pub fn optimize(
     let subjects = db::subjects::get_subjects(conn)?;
     let classes = db::classes::get_classes(conn)?;
     let rooms = db::rooms::get_rooms(conn)?;
-    let _time_slots = db::time_slots::get_time_slots(conn)?;
     let constraint_rules = db::constraints::get_constraint_rules(conn)?;
 
-    // Präferenzen pro Lehrer laden (wie in greedy.rs)
+    // Präferenzen pro Lehrer laden
     let mut all_prefs: HashMap<i64, Vec<TeacherPreference>> = HashMap::new();
     for teacher in &all_teachers {
         let prefs = db::preferences::get_preferences_for_teacher(conn, teacher.id)?;
@@ -385,7 +409,6 @@ pub fn optimize(
         .map(|r| (r.teacher_id, r.ranking_multiplier))
         .collect();
 
-    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
     let forbidden_pairs = greedy::load_forbidden_subject_pairs(&constraint_rules);
 
     // Lookup-Maps
@@ -393,14 +416,9 @@ pub fn optimize(
         .map(|t| (t.id, t.clone())).collect();
     let class_teacher_map: HashMap<i64, Option<i64>> = classes.iter()
         .map(|c| (c.id, c.class_teacher_id)).collect();
-    // Stundentafel-Overrides laden und effektive Wochenstunden berechnen
     let class_subject_overrides = db::class_subjects::get_all_class_subject_hours(conn)?;
-    let default_weekly_hours: HashMap<i64, i32> = subjects.iter()
+    let subject_weekly_hours: HashMap<i64, i32> = subjects.iter()
         .map(|s| (s.id, s.weekly_hours_default)).collect();
-    // subject_weekly_hours: für Scoring wird pro Entry die effektive Stundenzahl benötigt
-    // Da Tabu Search keyed by subject_id, nutzen wir weiterhin den Default als Basis
-    // (Overrides werden per-entry bei Bedarf aufgelöst)
-    let subject_weekly_hours: HashMap<i64, i32> = default_weekly_hours;
     let room_types: HashMap<i64, String> = rooms.iter()
         .map(|r| (r.id, r.room_type.clone())).collect();
     let subject_name_map: HashMap<i64, String> = subjects.iter()
@@ -409,7 +427,7 @@ pub fn optimize(
     // Lehrer-Klassen-Einschränkungen laden
     let (hard_class_restrictions, _soft_class_preferences) = db::teacher_classes::get_restriction_maps(conn)?;
 
-    // Qualifizierte Lehrer pro Fach (wie in greedy.rs)
+    // Qualifizierte Lehrer pro Fach
     let mut qualified_teachers: HashMap<i64, Vec<i64>> = HashMap::new();
     for subject in &subjects {
         let teachers = db::teacher_subjects::get_teachers_for_subject(conn, subject.id)?;
@@ -417,21 +435,50 @@ pub fn optimize(
     }
 
     // 3. schedule_entries laden -> EntrySnapshots
-    let mut entries = load_entry_snapshots(conn, schedule_id)?;
+    let entries = load_entry_snapshots(conn, schedule_id)?;
     if entries.is_empty() {
         return Err(AppError::Validation("Stundenplan hat keine Einträge. Bitte zuerst generieren.".to_string()));
     }
 
     // 4. ScheduleState aufbauen
-    let mut state = ScheduleState::from_entries(&entries);
+    let state = ScheduleState::from_entries(&entries);
 
     // 5. Initialen Score berechnen
+    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
     let initial_score = total_average_score(
         &entries, &state, &constraint_rules, &mut weights_cache, &class_teacher_map, &all_prefs, &subject_weekly_hours,
         &class_subject_overrides, &active_wishes, &ranking_multiplier_map, &subject_name_map, &forbidden_pairs,
     );
 
-    // 6. Tabu-Search-Hauptschleife
+    Ok(TabuInput {
+        schedule_id,
+        entries,
+        state,
+        initial_score,
+        constraint_rules,
+        all_prefs,
+        active_wishes,
+        ranking_multiplier_map,
+        class_subject_overrides,
+        teacher_map,
+        class_teacher_map,
+        subject_weekly_hours,
+        room_types,
+        subject_name_map,
+        qualified_teachers,
+        hard_class_restrictions,
+        forbidden_pairs,
+    })
+}
+
+/// Phase 2: Tabu-Search-Hauptschleife (reine Berechnung, kein DB-Zugriff).
+/// Kann OHNE Mutex-Lock aufgerufen werden.
+pub fn solve_tabu(input: TabuInput, config: TabuSearchConfig) -> TabuSolution {
+    let mut entries = input.entries;
+    let mut state = input.state;
+    let initial_score = input.initial_score;
+    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
+
     let mut rng = rand::rng();
     let mut tabu_list = TabuList::new(config.tabu_tenure);
     let mut best_score = initial_score;
@@ -440,8 +487,11 @@ pub fn optimize(
     let mut no_improve_count = 0;
     let mut moves_applied = 0;
     let mut modified_entry_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
+    let mut iterations_run = 0;
 
     for iteration in 0..config.max_iterations {
+        iterations_run = iteration + 1;
+
         // Periodisch Tabu-Liste aufräumen
         if iteration % 50 == 0 {
             tabu_list.cleanup(iteration);
@@ -450,10 +500,10 @@ pub fn optimize(
         // Nachbarschaft generieren
         let neighborhood = generate_neighborhood(
             &mut entries, &mut state, config.neighborhood_sample_size,
-            &constraint_rules, &mut weights_cache, &class_teacher_map, &all_prefs, &subject_weekly_hours,
-            &class_subject_overrides, &teacher_map, &qualified_teachers, &room_types,
-            &active_wishes, &ranking_multiplier_map,
-            &subject_name_map, &forbidden_pairs, &hard_class_restrictions, &mut rng,
+            &input.constraint_rules, &mut weights_cache, &input.class_teacher_map, &input.all_prefs, &input.subject_weekly_hours,
+            &input.class_subject_overrides, &input.teacher_map, &input.qualified_teachers, &input.room_types,
+            &input.active_wishes, &input.ranking_multiplier_map,
+            &input.subject_name_map, &input.forbidden_pairs, &input.hard_class_restrictions, &mut rng,
         );
 
         // Besten Move finden
@@ -507,26 +557,42 @@ pub fn optimize(
         }
     }
 
-    // 7. Beste Lösung wiederherstellen
+    // Beste Lösung wiederherstellen
     entries = best_entries;
+    // State passend zur besten Lösung neu aufbauen
+    let state = ScheduleState::from_entries(&entries);
 
-    // 8. Änderungen in DB schreiben
-    let entries_modified = persist_optimized_entries(conn, &entries, &modified_entry_ids, &state, &constraint_rules, &mut weights_cache, &class_teacher_map, &all_prefs, &subject_weekly_hours, &class_subject_overrides, &active_wishes, &ranking_multiplier_map, &subject_name_map, &forbidden_pairs)?;
-
-    let improvement = if initial_score > 0.0 {
-        ((best_score - initial_score) / initial_score) * 100.0
-    } else {
-        0.0
-    };
-
-    Ok(OptimizationResult {
-        initial_score: (initial_score * 1000.0).round() / 1000.0,
-        final_score: (best_score * 1000.0).round() / 1000.0,
-        improvement_percent: (improvement * 10.0).round() / 10.0,
-        iterations_run: config.max_iterations.min(moves_applied + config.max_no_improve),
+    TabuSolution {
+        entries,
+        modified_entry_ids,
+        initial_score,
+        best_score,
         moves_applied,
-        entries_modified,
-    })
+        iterations_run,
+        state,
+        constraint_rules: input.constraint_rules,
+        class_teacher_map: input.class_teacher_map,
+        all_prefs: input.all_prefs,
+        subject_weekly_hours: input.subject_weekly_hours,
+        class_subject_overrides: input.class_subject_overrides,
+        active_wishes: input.active_wishes,
+        ranking_multiplier_map: input.ranking_multiplier_map,
+        subject_name_map: input.subject_name_map,
+        forbidden_pairs: input.forbidden_pairs,
+    }
+}
+
+/// Phase 3: Schreibt optimierte Einträge zurück in die DB.
+/// Braucht DB-Zugriff (conn). Sollte unter Mutex-Lock aufgerufen werden.
+pub fn write_tabu_results(conn: &Connection, solution: &TabuSolution) -> Result<usize, AppError> {
+    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
+    persist_optimized_entries(
+        conn, &solution.entries, &solution.modified_entry_ids,
+        &solution.state, &solution.constraint_rules, &mut weights_cache,
+        &solution.class_teacher_map, &solution.all_prefs, &solution.subject_weekly_hours,
+        &solution.class_subject_overrides, &solution.active_wishes, &solution.ranking_multiplier_map,
+        &solution.subject_name_map, &solution.forbidden_pairs,
+    )
 }
 
 // ============================================================================

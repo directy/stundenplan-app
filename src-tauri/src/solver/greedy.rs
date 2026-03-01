@@ -10,18 +10,28 @@ use crate::models::{
 use super::constraints;
 use super::scorer;
 use super::types::{
-    AssignmentCandidate, ConstraintWeights, GenerationResult, ScheduleState, ScoringContext,
-    SchedulingTask, UnplacedTask,
+    AssignmentCandidate, ConstraintWeights, GenerationResult, GreedyInput, GreedySolution,
+    ScheduleState, ScoringContext, SchedulingTask, UnplacedTask,
 };
 
-/// Kernfunktion: Generiert einen Stundenplan mit dem Greedy-Algorithmus.
-///
-/// 1. Validiert den Schedule (muss existieren, Status "draft")
-/// 2. Lädt alle Stammdaten
-/// 3. Generiert Planungsaufgaben, sortiert nach Schwierigkeit
-/// 4. Weist greedy den besten Kandidaten je Aufgabe zu
-/// 5. Gibt GenerationResult zurück
+/// Wrapper: Generiert einen Stundenplan in einem Schritt (für Tests und direkte Aufrufe).
+/// In Tauri-Commands sollte stattdessen load_greedy_input/solve_greedy/write_greedy_results
+/// separat aufgerufen werden, um den DB-Mutex zwischen den Phasen freizugeben.
 pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult, AppError> {
+    let input = load_greedy_input(conn, schedule_id)?;
+    let solution = solve_greedy(input);
+    write_greedy_results(conn, schedule_id, &solution)?;
+    Ok(GenerationResult {
+        entries_created: solution.entries.len(),
+        total_score: solution.total_score,
+        average_score: solution.average_score,
+        unplaced_tasks: solution.unplaced_tasks,
+    })
+}
+
+/// Phase 1: Validiert den Schedule, löscht alte Einträge und lädt alle Stammdaten.
+/// Braucht DB-Zugriff (conn). Sollte unter Mutex-Lock aufgerufen werden.
+pub fn load_greedy_input(conn: &Connection, schedule_id: i64) -> Result<GreedyInput, AppError> {
     // 1. Validierung
     let schedule = db::schedules::get_schedule(conn, schedule_id)?;
     if schedule.status != "draft" {
@@ -38,7 +48,6 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
     )?;
 
     // 2. Alle Stammdaten laden
-    // Lehrer filtern, die während des Gültigkeitszeitraums komplett abwesend sind
     let all_teachers = db::teachers::get_teachers(conn)?;
     let teachers: Vec<Teacher> = match (&schedule.valid_from, &schedule.valid_to) {
         (Some(from), Some(to)) => all_teachers
@@ -55,29 +64,6 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
     let rooms = db::rooms::get_rooms(conn)?;
     let time_slots = db::time_slots::get_time_slots(conn)?;
     let constraint_rules = db::constraints::get_constraint_rules(conn)?;
-
-    // Falls keine Basisdaten vorhanden, leeres Ergebnis
-    if classes.is_empty() || subjects.is_empty() || teachers.is_empty() || rooms.is_empty() {
-        return Ok(GenerationResult {
-            entries_created: 0,
-            total_score: 0.0,
-            average_score: 0.0,
-            unplaced_tasks: Vec::new(),
-        });
-    }
-
-    // 3. Lookup-Maps erstellen
-    let teacher_map: HashMap<i64, &Teacher> = teachers.iter().map(|t| (t.id, t)).collect();
-    let subject_map: HashMap<i64, &Subject> = subjects.iter().map(|s| (s.id, s)).collect();
-    let class_map: HashMap<i64, &SchoolClass> = classes.iter().map(|c| (c.id, c)).collect();
-    // Räume nach Typ gruppieren
-    let mut rooms_by_type: HashMap<String, Vec<&Room>> = HashMap::new();
-    for room in &rooms {
-        rooms_by_type
-            .entry(room.room_type.clone())
-            .or_default()
-            .push(room);
-    }
 
     // Lehrer-Fach-Zuordnungen laden
     let mut teachers_for_subject: HashMap<i64, Vec<i64>> = HashMap::new();
@@ -103,47 +89,90 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         .map(|r| (r.teacher_id, r.ranking_multiplier))
         .collect();
 
-    // Scope-aware Gewichte-Cache (pro Kontext)
-    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
-
-    // Fach-Kurzname-Map und verbotene Fachfolgen laden
-    let subject_name_map: HashMap<i64, String> = subjects
-        .iter()
-        .map(|s| (s.id, s.short_name.clone()))
-        .collect();
-    let forbidden_pairs = load_forbidden_subject_pairs(&constraint_rules);
-
     // Stundentafel-Overrides und Lehrer-Klassen-Einschränkungen laden
     let class_subject_overrides = db::class_subjects::get_all_class_subject_hours(conn)?;
     let (hard_class_restrictions, soft_class_preferences) = db::teacher_classes::get_restriction_maps(conn)?;
 
-    // 4. Planungsaufgaben generieren
+    Ok(GreedyInput {
+        schedule_id,
+        teachers,
+        subjects,
+        classes,
+        rooms,
+        time_slots,
+        constraint_rules,
+        teachers_for_subject,
+        teacher_preferences,
+        active_wishes,
+        ranking_multiplier_map,
+        class_subject_overrides,
+        hard_class_restrictions,
+        soft_class_preferences,
+    })
+}
+
+/// Phase 2: Reine Berechnung – Greedy-Algorithmus ohne DB-Zugriff.
+/// Kann OHNE Mutex-Lock aufgerufen werden.
+pub fn solve_greedy(input: GreedyInput) -> GreedySolution {
+    let empty_solution = GreedySolution {
+        entries: Vec::new(),
+        total_score: 0.0,
+        average_score: 0.0,
+        unplaced_tasks: Vec::new(),
+    };
+
+    // Falls keine Basisdaten vorhanden, leeres Ergebnis
+    if input.classes.is_empty() || input.subjects.is_empty() || input.teachers.is_empty() || input.rooms.is_empty() {
+        return empty_solution;
+    }
+
+    // Lookup-Maps erstellen (aus owned data)
+    let teacher_map: HashMap<i64, &Teacher> = input.teachers.iter().map(|t| (t.id, t)).collect();
+    let subject_map: HashMap<i64, &Subject> = input.subjects.iter().map(|s| (s.id, s)).collect();
+    let class_map: HashMap<i64, &SchoolClass> = input.classes.iter().map(|c| (c.id, c)).collect();
+    let mut rooms_by_type: HashMap<String, Vec<&Room>> = HashMap::new();
+    for room in &input.rooms {
+        rooms_by_type
+            .entry(room.room_type.clone())
+            .or_default()
+            .push(room);
+    }
+
+    let subject_name_map: HashMap<i64, String> = input.subjects
+        .iter()
+        .map(|s| (s.id, s.short_name.clone()))
+        .collect();
+    let forbidden_pairs = load_forbidden_subject_pairs(&input.constraint_rules);
+
+    // Scope-aware Gewichte-Cache
+    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
+
+    // Planungsaufgaben generieren
     let mut tasks = build_scheduling_tasks(
-        &classes,
-        &subjects,
-        &teachers_for_subject,
+        &input.classes,
+        &input.subjects,
+        &input.teachers_for_subject,
         &rooms_by_type,
-        &class_subject_overrides,
+        &input.class_subject_overrides,
     );
 
-    // Nach Schwierigkeit sortieren (schwierigste zuerst, gemäß CLAUDE.md)
+    // Nach Schwierigkeit sortieren (schwierigste zuerst)
     tasks.sort_by(|a, b| b.difficulty.partial_cmp(&a.difficulty).unwrap_or(std::cmp::Ordering::Equal));
 
-    // 5. Greedy-Zuweisung
+    // Greedy-Zuweisung
     let mut state = ScheduleState::new();
-    let mut entries_created = 0;
+    let mut entries = Vec::new();
     let mut total_score_sum = 0.0;
     let mut unplaced_tasks = Vec::new();
 
     for task in &tasks {
-        // Alle Hard-Constraint-konformen Kandidaten generieren
         let candidates = generate_candidates(
             task,
-            &time_slots,
+            &input.time_slots,
             &teacher_map,
             &rooms_by_type,
             &state,
-            &hard_class_restrictions,
+            &input.hard_class_restrictions,
         );
 
         if candidates.is_empty() {
@@ -164,13 +193,11 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
             continue;
         }
 
-        // Jeden Kandidaten mit Soft Constraints bewerten
         let subject = subject_map.get(&task.subject_id).unwrap();
         let class = class_map.get(&task.class_id).unwrap();
         let prefs_empty = Vec::new();
 
-        // Effektive Wochenstunden für Scoring
-        let effective_hours = class_subject_overrides
+        let effective_hours = input.class_subject_overrides
             .get(&(task.class_id, task.subject_id))
             .copied()
             .unwrap_or(subject.weekly_hours_default);
@@ -179,10 +206,10 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         let candidates_count = candidates.len();
 
         for candidate in &candidates {
-            let teacher_prefs = teacher_preferences
+            let teacher_prefs = input.teacher_preferences
                 .get(&candidate.teacher_id)
                 .unwrap_or(&prefs_empty);
-            let r_mult = ranking_multiplier_map
+            let r_mult = input.ranking_multiplier_map
                 .get(&candidate.teacher_id)
                 .copied()
                 .unwrap_or(1.0);
@@ -196,7 +223,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
                         teacher_id: candidate.teacher_id,
                         room_id: candidate.room_id,
                     };
-                    load_constraint_weights_for_context(&constraint_rules, &ctx)
+                    load_constraint_weights_for_context(&input.constraint_rules, &ctx)
                 });
 
             let mut scored = scorer::score_candidate(
@@ -208,7 +235,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
                 effective_hours,
                 class.class_teacher_id,
                 teacher_prefs,
-                &active_wishes,
+                &input.active_wishes,
                 r_mult,
                 weights,
                 &subject_name_map,
@@ -216,7 +243,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
             );
 
             // Soft-Bonus für Klassenpräferenz
-            if let Some(pref_classes) = soft_class_preferences.get(&candidate.teacher_id) {
+            if let Some(pref_classes) = input.soft_class_preferences.get(&candidate.teacher_id) {
                 if pref_classes.contains(&task.class_id) {
                     scored.total_score += 0.05;
                 }
@@ -234,23 +261,20 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         let best = best_scored.unwrap();
         total_score_sum += best.total_score;
 
-        // Decision-Log erstellen
         let decision_log = scorer::build_decision_log(&best, candidates_count);
 
-        // Schedule-Entry in DB speichern
-        let new_entry = NewScheduleEntry {
-            schedule_id,
+        // In-Memory sammeln statt sofort in DB schreiben
+        entries.push(NewScheduleEntry {
+            schedule_id: input.schedule_id,
             time_slot_id: best.candidate.time_slot_id,
             class_id: task.class_id,
             subject_id: task.subject_id,
             teacher_id: best.candidate.teacher_id,
             room_id: best.candidate.room_id,
             decision_log: Some(decision_log),
-        };
-        db::schedule_entries::create_schedule_entry(conn, &new_entry)?;
-        entries_created += 1;
+        });
 
-        // ScheduleState aktualisieren
+        // ScheduleState aktualisieren (für nächste Iteration)
         update_state(
             &mut state,
             &best.candidate,
@@ -259,18 +283,28 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         );
     }
 
-    let average_score = if entries_created > 0 {
-        total_score_sum / entries_created as f64
+    let entries_count = entries.len();
+    let average_score = if entries_count > 0 {
+        total_score_sum / entries_count as f64
     } else {
         0.0
     };
 
-    Ok(GenerationResult {
-        entries_created,
+    GreedySolution {
+        entries,
         total_score: (total_score_sum * 1000.0).round() / 1000.0,
         average_score: (average_score * 1000.0).round() / 1000.0,
         unplaced_tasks,
-    })
+    }
+}
+
+/// Phase 3: Schreibt die berechneten Einträge in die DB.
+/// Braucht DB-Zugriff (conn). Sollte unter Mutex-Lock aufgerufen werden.
+pub fn write_greedy_results(conn: &Connection, _schedule_id: i64, solution: &GreedySolution) -> Result<(), AppError> {
+    for entry in &solution.entries {
+        db::schedule_entries::create_schedule_entry(conn, entry)?;
+    }
+    Ok(())
 }
 
 /// Generiert Planungsaufgaben: Pro (Klasse, Fach) je effective_weekly_hours Tasks.

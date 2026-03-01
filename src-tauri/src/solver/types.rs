@@ -1,6 +1,11 @@
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+use crate::models::{
+    ConstraintRule, NewScheduleEntry, Room, SchoolClass, Subject, Teacher, TeacherPreference,
+    TeacherWish, TimeSlot,
+};
+
 /// Eine Planungsaufgabe: "Klasse X braucht 1 Stunde Fach Y"
 #[derive(Debug, Clone)]
 pub struct SchedulingTask {
@@ -261,4 +266,76 @@ pub struct OptimizationResult {
     pub iterations_run: usize,
     pub moves_applied: usize,
     pub entries_modified: usize,
+}
+
+// ============================================================================
+// Solver-Input/Output Structs (für Lock-freie Berechnung)
+// ============================================================================
+
+/// Alle Daten, die der Greedy-Solver zum Rechnen braucht (aus DB geladen).
+pub struct GreedyInput {
+    pub schedule_id: i64,
+    pub teachers: Vec<Teacher>,
+    pub subjects: Vec<Subject>,
+    pub classes: Vec<SchoolClass>,
+    pub rooms: Vec<Room>,
+    pub time_slots: Vec<TimeSlot>,
+    pub constraint_rules: Vec<ConstraintRule>,
+    pub teachers_for_subject: HashMap<i64, Vec<i64>>,
+    pub teacher_preferences: HashMap<i64, Vec<TeacherPreference>>,
+    pub active_wishes: Vec<TeacherWish>,
+    pub ranking_multiplier_map: HashMap<i64, f64>,
+    pub class_subject_overrides: HashMap<(i64, i64), i32>,
+    pub hard_class_restrictions: HashMap<i64, HashSet<i64>>,
+    pub soft_class_preferences: HashMap<i64, HashSet<i64>>,
+}
+
+/// Ergebnis der Greedy-Berechnung (wird danach in DB geschrieben).
+pub struct GreedySolution {
+    pub entries: Vec<NewScheduleEntry>,
+    pub total_score: f64,
+    pub average_score: f64,
+    pub unplaced_tasks: Vec<UnplacedTask>,
+}
+
+/// Alle Daten, die der Tabu-Search-Solver zum Rechnen braucht.
+pub struct TabuInput {
+    pub schedule_id: i64,
+    pub entries: Vec<EntrySnapshot>,
+    pub state: ScheduleState,
+    pub initial_score: f64,
+    pub constraint_rules: Vec<ConstraintRule>,
+    pub all_prefs: HashMap<i64, Vec<TeacherPreference>>,
+    pub active_wishes: Vec<TeacherWish>,
+    pub ranking_multiplier_map: HashMap<i64, f64>,
+    pub class_subject_overrides: HashMap<(i64, i64), i32>,
+    pub teacher_map: HashMap<i64, Teacher>,
+    pub class_teacher_map: HashMap<i64, Option<i64>>,
+    pub subject_weekly_hours: HashMap<i64, i32>,
+    pub room_types: HashMap<i64, String>,
+    pub subject_name_map: HashMap<i64, String>,
+    pub qualified_teachers: HashMap<i64, Vec<i64>>,
+    pub hard_class_restrictions: HashMap<i64, HashSet<i64>>,
+    pub forbidden_pairs: Vec<(String, String)>,
+}
+
+/// Ergebnis der Tabu-Search-Berechnung (wird danach in DB geschrieben).
+pub struct TabuSolution {
+    pub entries: Vec<EntrySnapshot>,
+    pub modified_entry_ids: HashSet<i64>,
+    pub initial_score: f64,
+    pub best_score: f64,
+    pub moves_applied: usize,
+    pub iterations_run: usize,
+    // Daten die für persist_optimized_entries gebraucht werden
+    pub state: ScheduleState,
+    pub constraint_rules: Vec<ConstraintRule>,
+    pub class_teacher_map: HashMap<i64, Option<i64>>,
+    pub all_prefs: HashMap<i64, Vec<TeacherPreference>>,
+    pub subject_weekly_hours: HashMap<i64, i32>,
+    pub class_subject_overrides: HashMap<(i64, i64), i32>,
+    pub active_wishes: Vec<TeacherWish>,
+    pub ranking_multiplier_map: HashMap<i64, f64>,
+    pub subject_name_map: HashMap<i64, String>,
+    pub forbidden_pairs: Vec<(String, String)>,
 }
