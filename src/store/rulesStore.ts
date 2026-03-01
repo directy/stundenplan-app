@@ -53,7 +53,7 @@ export const useRulesStore = create<RulesState>((set, get) => ({
   deleteRule: async (id: number) => {
     await invoke("delete_constraint_rule", { id });
     set({ rules: get().rules.filter((r) => r.id !== id) });
-    useToastStore.getState().addToast("success", "Regel geloescht");
+    useToastStore.getState().addToast("success", "Regel gelöscht");
   },
 
   updateOrder: async (updates: ConstraintOrderUpdate[]) => {

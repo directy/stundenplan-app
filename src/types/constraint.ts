@@ -6,6 +6,8 @@ export interface ConstraintRule {
   isActive: boolean;
   parameters: string;
   sortOrder: number;
+  scopeType: string;
+  scopeId: number | null;
 }
 
 export interface NewConstraintRule {
@@ -14,6 +16,8 @@ export interface NewConstraintRule {
   weight?: number;
   isActive?: boolean;
   parameters?: string;
+  scopeType?: string;
+  scopeId?: number | null;
 }
 
 export interface ConstraintOrderUpdate {

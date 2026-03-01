@@ -35,7 +35,7 @@ pub fn run() {
             app.manage(Mutex::new(database));
 
             // License validation
-            let license_path = license::locate_license_path(&app.handle());
+            let license_path = license::locate_license_path(app.handle());
             let license_status = license::load_and_validate(&license_path);
             app.manage(Mutex::new(license_status));
 
@@ -118,9 +118,34 @@ pub fn run() {
             commands::report::get_schedule_report,
             // Seed
             commands::seed::seed_example_data,
+            // Rewards
+            commands::reward::create_reward_point,
+            commands::reward::get_reward_points,
+            commands::reward::delete_reward_point,
+            commands::reward::get_teacher_rankings,
+            // Wishes
+            commands::wish::create_teacher_wish,
+            commands::wish::get_teacher_wishes,
+            commands::wish::update_teacher_wish,
+            commands::wish::delete_teacher_wish,
             // License
             commands::license::get_license_status,
             commands::license::import_license_file,
+            // Settings
+            commands::setting::get_all_settings,
+            commands::setting::set_setting,
+            // Class Subjects (Stundentafel)
+            commands::class_subject::get_all_class_subjects,
+            commands::class_subject::get_class_subjects_for_class,
+            commands::class_subject::upsert_class_subject,
+            commands::class_subject::batch_upsert_class_subjects,
+            commands::class_subject::delete_class_subject,
+            // Teacher-Class Restrictions
+            commands::teacher_class::get_teacher_class_restrictions,
+            commands::teacher_class::get_all_teacher_class_restrictions,
+            commands::teacher_class::create_teacher_class_restriction,
+            commands::teacher_class::update_teacher_class_restriction,
+            commands::teacher_class::delete_teacher_class_restriction,
         ])
         .run(tauri::generate_context!())
         .expect("Fehler beim Starten der Anwendung");

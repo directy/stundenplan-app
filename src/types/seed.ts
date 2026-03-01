@@ -6,4 +6,4 @@ export interface SeedResult {
   assignmentsCreated: number;
 }
 
-export type SchoolType = "gymnasium" | "grundschule" | "mittelschule";
+export type SchoolType = "gymnasium" | "grundschule" | "mittelschule" | "vollstaendig";

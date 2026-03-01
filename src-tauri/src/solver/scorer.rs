@@ -1,9 +1,9 @@
 use std::collections::HashMap;
-use crate::models::TeacherPreference;
+use crate::models::{TeacherPreference, TeacherWish};
 use super::constraints;
 use super::types::{AssignmentCandidate, ConstraintWeights, ScheduleState, ScoredCandidate};
 
-/// Berechnet alle 7 Soft Scores fuer einen Kandidaten,
+/// Berechnet alle 8 Soft Scores für einen Kandidaten,
 /// gewichtet mit den ConstraintWeights und normalisiert auf 0.0-1.0.
 #[allow(clippy::too_many_arguments)]
 pub fn score_candidate(
@@ -15,15 +15,21 @@ pub fn score_candidate(
     weekly_hours: i32,
     class_teacher_id: Option<i64>,
     teacher_preferences: &[TeacherPreference],
+    teacher_wishes: &[TeacherWish],
+    ranking_multiplier: f64,
     weights: &ConstraintWeights,
+    subject_name_map: &HashMap<i64, String>,
+    forbidden_pairs: &[(String, String)],
 ) -> ScoredCandidate {
     let mut soft_scores = HashMap::new();
 
-    // 1. Kein Sport nach Mathe
-    let s1 = constraints::score_no_sports_after_math(state, class_id, subject_short_name, candidate);
-    soft_scores.insert("no_sports_after_math".to_string(), s1);
+    // 1. Verbotene Fachfolgen
+    let s1 = constraints::score_no_subject_after_subject(
+        state, class_id, subject_short_name, candidate, subject_name_map, forbidden_pairs,
+    );
+    soft_scores.insert("forbidden_subject_sequence".to_string(), s1);
 
-    // 2. Gleichmaessige Wochenverteilung
+    // 2. Gleichmäßige Wochenverteilung
     let s2 = constraints::score_even_weekly_distribution(state, class_id, subject_id, candidate, weekly_hours);
     soft_scores.insert("even_weekly_distribution".to_string(), s2);
 
@@ -39,22 +45,27 @@ pub fn score_candidate(
     let s5 = constraints::score_class_teacher_first_period(candidate, class_teacher_id);
     soft_scores.insert("class_teacher_first_period".to_string(), s5);
 
-    // 6. Hauptfaecher vormittags
+    // 6. Hauptfächer vormittags
     let s6 = constraints::score_main_subjects_morning(subject_short_name, candidate);
     soft_scores.insert("main_subjects_morning".to_string(), s6);
 
-    // 7. Lehrer-Praeferenzen
-    let s7 = constraints::score_teacher_preferences(teacher_preferences, candidate);
+    // 7. Lehrer-Präferenzen (mit Ranking-Multiplier)
+    let s7 = constraints::score_teacher_preferences(teacher_preferences, candidate, ranking_multiplier);
     soft_scores.insert("teacher_preferences".to_string(), s7);
 
+    // 8. Sonderwünsche der Lehrkräfte (mit Ranking-Multiplier)
+    let s8 = constraints::score_teacher_wishes(teacher_wishes, candidate, state, ranking_multiplier);
+    soft_scores.insert("teacher_wishes".to_string(), s8);
+
     // Gewichtete Summe, normalisiert
-    let weighted_sum = s1 * weights.no_sports_after_math
+    let weighted_sum = s1 * weights.forbidden_subject_sequence
         + s2 * weights.even_weekly_distribution
         + s3 * weights.avoid_edge_periods
         + s4 * weights.minimize_gaps
         + s5 * weights.class_teacher_first_period
         + s6 * weights.main_subjects_morning
-        + s7 * weights.teacher_preferences;
+        + s7 * weights.teacher_preferences
+        + s8 * weights.teacher_wishes;
 
     let total_weight = weights.total();
     let total_score = if total_weight > 0.0 {
@@ -70,7 +81,7 @@ pub fn score_candidate(
     }
 }
 
-/// Erzeugt den Decision-Log als JSON-String fuer einen schedule_entry.
+/// Erzeugt den Decision-Log als JSON-String für einen schedule_entry.
 pub fn build_decision_log(
     scored: &ScoredCandidate,
     candidates_evaluated: usize,
@@ -95,7 +106,7 @@ pub fn build_decision_log(
         "soft_scores": soft_scores_json,
         "total_score": (scored.total_score * 1000.0).round() / 1000.0,
         "reason": format!(
-            "Bester verfuegbarer Kandidat mit Score {:.3} (von {} geprueft)",
+            "Bester verfügbarer Kandidat mit Score {:.3} (von {} geprüft)",
             scored.total_score, candidates_evaluated
         )
     });
@@ -119,22 +130,26 @@ mod tests {
             room_id: 100,
         };
         let weights = ConstraintWeights {
-            no_sports_after_math: 0.3,
+            forbidden_subject_sequence: 0.3,
             even_weekly_distribution: 0.8,
             avoid_edge_periods: 0.5,
             minimize_gaps: 0.9,
             class_teacher_first_period: 0.6,
             main_subjects_morning: 0.7,
             teacher_preferences: 0.4,
+            teacher_wishes: 0.5,
         };
 
+        let subject_name_map = HashMap::new();
+        let forbidden_pairs = vec![];
         let scored = score_candidate(
-            &state, &candidate, 1, 1, "Kunst", 3, None, &[], &weights,
+            &state, &candidate, 1, 1, "Kunst", 3, None, &[], &[], 1.0, &weights,
+            &subject_name_map, &forbidden_pairs,
         );
 
         assert!(scored.total_score > 0.0);
         assert!(scored.total_score <= 1.0);
-        assert_eq!(scored.soft_scores.len(), 7);
+        assert_eq!(scored.soft_scores.len(), 8);
     }
 
     #[test]

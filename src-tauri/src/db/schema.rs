@@ -1,11 +1,11 @@
 use rusqlite::Connection;
 use crate::error::AppError;
 
-/// Erstellt alle Tabellen in Abhaengigkeitsreihenfolge.
-/// Verwendet IF NOT EXISTS fuer idempotente Ausfuehrung.
+/// Erstellt alle Tabellen in Abhängigkeitsreihenfolge.
+/// Verwendet IF NOT EXISTS für idempotente Ausführung.
 pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
     conn.execute_batch("
-        -- Lehrkraefte
+        -- Lehrkräfte
         CREATE TABLE IF NOT EXISTS teachers (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -18,7 +18,7 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        -- Faecher
+        -- Fächer
         CREATE TABLE IF NOT EXISTS subjects (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -44,7 +44,7 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             student_count INTEGER NOT NULL DEFAULT 25
         );
 
-        -- Raeume
+        -- Räume
         CREATE TABLE IF NOT EXISTS rooms (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
@@ -75,7 +75,7 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        -- Einzelne Stundenplaneintraege mit Entscheidungsprotokoll
+        -- Einzelne Stundenplaneinträge mit Entscheidungsprotokoll
         CREATE TABLE IF NOT EXISTS schedule_entries (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             schedule_id INTEGER NOT NULL REFERENCES schedules(id) ON DELETE CASCADE,
@@ -88,15 +88,18 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        -- Konfigurierbare Constraint-Regeln mit Gewichtung
+        -- Konfigurierbare Constraint-Regeln mit Gewichtung und Scope
         CREATE TABLE IF NOT EXISTS constraint_rules (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            rule_type TEXT NOT NULL UNIQUE,
+            rule_type TEXT NOT NULL,
             description TEXT NOT NULL DEFAULT '',
             weight REAL NOT NULL DEFAULT 1.0,
             is_active INTEGER NOT NULL DEFAULT 1,
             parameters TEXT NOT NULL DEFAULT '{}',
-            sort_order INTEGER NOT NULL DEFAULT 0
+            sort_order INTEGER NOT NULL DEFAULT 0,
+            scope_type TEXT NOT NULL DEFAULT 'global'
+                CHECK(scope_type IN ('global', 'class', 'teacher', 'room')),
+            scope_id INTEGER
         );
 
         -- Vertretungshistorie mit Scoring-Details
@@ -110,7 +113,7 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        -- Lehrkraft-Praeferenzen (Wunschzeiten, freie Tage)
+        -- Lehrkraft-Präferenzen (Wunschzeiten, freie Tage)
         CREATE TABLE IF NOT EXISTS teacher_preferences (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
@@ -132,7 +135,7 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             created_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
 
-        -- Langzeit-Abwesenheiten von Lehrkraeften
+        -- Langzeit-Abwesenheiten von Lehrkräften
         CREATE TABLE IF NOT EXISTS teacher_absences (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
@@ -142,6 +145,64 @@ pub fn create_all_tables(conn: &Connection) -> Result<(), AppError> {
             end_date TEXT NOT NULL,
             note TEXT DEFAULT '',
             created_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Belohnungspunkte für Lehrkräfte (Ranking-System)
+        CREATE TABLE IF NOT EXISTS reward_points (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+            points INTEGER NOT NULL,
+            category TEXT NOT NULL
+                CHECK(category IN (
+                    'extra_tasks', 'mentoring', 'event_organization',
+                    'training', 'committee_work', 'exam_supervision',
+                    'project_lead', 'other'
+                )),
+            reason TEXT NOT NULL DEFAULT '',
+            date TEXT NOT NULL DEFAULT (date('now')),
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Dynamische Sonderwünsche der Lehrkräfte
+        CREATE TABLE IF NOT EXISTS teacher_wishes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+            wish_type TEXT NOT NULL
+                CHECK(wish_type IN (
+                    'prefer_morning', 'prefer_afternoon', 'free_day',
+                    'max_consecutive', 'compact_schedule', 'custom'
+                )),
+            priority TEXT NOT NULL DEFAULT 'medium'
+                CHECK(priority IN ('low', 'medium', 'high')),
+            parameters TEXT NOT NULL DEFAULT '{}',
+            note TEXT DEFAULT '',
+            is_active INTEGER NOT NULL DEFAULT 1,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
+        -- Stundentafel: Wochenstunden pro Klasse-Fach-Kombination
+        CREATE TABLE IF NOT EXISTS class_subjects (
+            class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+            subject_id INTEGER NOT NULL REFERENCES subjects(id) ON DELETE CASCADE,
+            weekly_hours INTEGER NOT NULL,
+            PRIMARY KEY (class_id, subject_id)
+        );
+
+        -- Lehrer-Klassen-Einschränkungen
+        CREATE TABLE IF NOT EXISTS teacher_class_restrictions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+            class_id INTEGER NOT NULL REFERENCES classes(id) ON DELETE CASCADE,
+            restriction_type TEXT NOT NULL DEFAULT 'preference'
+                CHECK(restriction_type IN ('preference', 'qualification')),
+            UNIQUE(teacher_id, class_id)
+        );
+
+        -- Globale App-Einstellungen (Key-Value)
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL,
             updated_at TEXT NOT NULL DEFAULT (datetime('now'))
         );
     ")?;
@@ -160,7 +221,7 @@ mod tests {
         conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
         create_all_tables(&conn).unwrap();
 
-        // Pruefe ob alle Tabellen existiert
+        // Prüfe ob alle Tabellen existiert
         let tables: Vec<String> = conn
             .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
             .unwrap()
@@ -182,6 +243,11 @@ mod tests {
         assert!(tables.contains(&"teacher_preferences".to_string()));
         assert!(tables.contains(&"holidays".to_string()));
         assert!(tables.contains(&"teacher_absences".to_string()));
+        assert!(tables.contains(&"reward_points".to_string()));
+        assert!(tables.contains(&"teacher_wishes".to_string()));
+        assert!(tables.contains(&"class_subjects".to_string()));
+        assert!(tables.contains(&"teacher_class_restrictions".to_string()));
+        assert!(tables.contains(&"app_settings".to_string()));
     }
 
     #[test]
@@ -189,7 +255,7 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         conn.execute_batch("PRAGMA foreign_keys = ON;").unwrap();
         create_all_tables(&conn).unwrap();
-        // Zweites Mal ausfuehren darf keinen Fehler werfen
+        // Zweites Mal ausführen darf keinen Fehler werfen
         create_all_tables(&conn).unwrap();
     }
 }

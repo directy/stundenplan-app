@@ -48,6 +48,6 @@ export const useSubjectStore = create<SubjectState>((set, get) => ({
   deleteSubject: async (id: number) => {
     await invoke("delete_subject", { id });
     set({ subjects: get().subjects.filter((s) => s.id !== id) });
-    useToastStore.getState().addToast("success", "Fach geloescht");
+    useToastStore.getState().addToast("success", "Fach gelöscht");
   },
 }));

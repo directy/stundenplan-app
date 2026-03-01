@@ -15,7 +15,7 @@ export function ConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = "Loeschen",
+  confirmLabel = "Löschen",
   cancelLabel = "Abbrechen",
   onConfirm,
   onCancel,

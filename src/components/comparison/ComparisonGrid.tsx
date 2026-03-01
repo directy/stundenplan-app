@@ -112,7 +112,7 @@ export function ComparisonGrid({
                       className={`border-b p-0.5 min-h-[48px] ${statusBorder[status]} ${statusBg[status]}`}
                       title={
                         cell?.changes.length
-                          ? `Geaendert: ${cell.changes.join(", ")}`
+                          ? `Geändert: ${cell.changes.join(", ")}`
                           : undefined
                       }
                     >

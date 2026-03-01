@@ -8,7 +8,7 @@ pub use state::LicenseStatus;
 
 /// Hard-coded Ed25519 public key (Base64).
 /// Generated with: license-gen generate-keypair
-const PUBLIC_KEY_B64: &str = "K/sygTay8HU1kim+i9OTEBaWkz4wzJ44lqyEs1WhYJE=";
+const PUBLIC_KEY_B64: &str = "wzKM+ailEnh4gqjoQlcMM6kV20TlCLAZmBmiQTWKHfY=";
 
 const LICENSE_FILENAME: &str = "license.lic";
 
@@ -50,7 +50,7 @@ pub fn load_and_validate(path: &Path) -> LicenseStatus {
     let signed: SignedLicense = match serde_json::from_str(&json_str) {
         Ok(l) => l,
         Err(e) => {
-            return LicenseStatus::missing(&format!("Lizenzdatei ungueltig: {}", e));
+            return LicenseStatus::missing(&format!("Lizenzdatei ungültig: {}", e));
         }
     };
 
@@ -58,7 +58,7 @@ pub fn load_and_validate(path: &Path) -> LicenseStatus {
     match verify_license(&signed, PUBLIC_KEY_B64) {
         Ok(payload) => LicenseStatus {
             valid: true,
-            reason: "Lizenz gueltig".to_string(),
+            reason: "Lizenz gültig".to_string(),
             licensee_name: payload.licensee_name,
             licensee_email: payload.licensee_email,
             license_type: format!("{:?}", payload.license_type),

@@ -10,7 +10,7 @@ impl Database {
     pub fn new(path: &Path) -> Result<Self, AppError> {
         let conn = Connection::open(path)?;
 
-        // PRAGMAs fuer Performance und Integritaet
+        // PRAGMAs für Performance und Integrität
         conn.execute_batch("
             PRAGMA journal_mode = WAL;
             PRAGMA foreign_keys = ON;
@@ -24,7 +24,7 @@ impl Database {
         Ok(db)
     }
 
-    /// Erstellt eine In-Memory-Datenbank (fuer Tests)
+    /// Erstellt eine In-Memory-Datenbank (für Tests)
     #[cfg(test)]
     pub fn new_in_memory() -> Result<Self, AppError> {
         let conn = Connection::open_in_memory()?;

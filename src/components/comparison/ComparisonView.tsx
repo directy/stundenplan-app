@@ -136,7 +136,7 @@ export function ComparisonView() {
               onChange={(e) => setIdA(e.target.value ? Number(e.target.value) : null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">-- Plan waehlen --</option>
+              <option value="">-- Plan wählen --</option>
               {schedules.map((s) => (
                 <option key={s.id} value={s.id} disabled={s.id === idB}>
                   {s.name}
@@ -154,7 +154,7 @@ export function ComparisonView() {
               onChange={(e) => setIdB(e.target.value ? Number(e.target.value) : null)}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">-- Plan waehlen --</option>
+              <option value="">-- Plan wählen --</option>
               {schedules.map((s) => (
                 <option key={s.id} value={s.id} disabled={s.id === idA}>
                   {s.name}
@@ -186,14 +186,14 @@ export function ComparisonView() {
       {/* Kein Plan ausgewaehlt */}
       {(!idA || !idB) && (
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-          <p>Bitte zwei Stundenplaene auswaehlen, um den Vergleich zu starten.</p>
+          <p>Bitte zwei Stundenpläne auswählen, um den Vergleich zu starten.</p>
         </div>
       )}
 
       {/* Laden */}
       {loading && idA && idB && (
         <div className="flex items-center gap-2 text-gray-500 mb-4">
-          <Spinner size="sm" /> Lade Eintraege...
+          <Spinner size="sm" /> Lade Einträge...
         </div>
       )}
 
@@ -209,11 +209,11 @@ export function ComparisonView() {
           <div className="flex gap-4 mb-3 text-xs text-gray-500">
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-amber-200 border border-amber-400" />
-              Geaendert
+              Geändert
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-green-200 border border-green-400" />
-              Hinzugefuegt
+              Hinzugefügt
             </span>
             <span className="flex items-center gap-1">
               <span className="w-3 h-3 rounded bg-red-200 border border-red-400" />

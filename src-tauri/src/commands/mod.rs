@@ -12,3 +12,8 @@ pub mod absence;
 pub mod report;
 pub mod seed;
 pub mod license;
+pub mod reward;
+pub mod wish;
+pub mod setting;
+pub mod class_subject;
+pub mod teacher_class;

@@ -67,7 +67,7 @@ export function ClassForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Schueleranzahl
+            Schüleranzahl
           </label>
           <input
             type="number"
@@ -117,7 +117,7 @@ export function ClassForm({
             ? "Speichere..."
             : schoolClass
               ? "Speichern"
-              : "Hinzufuegen"}
+              : "Hinzufügen"}
         </button>
       </div>
     </form>

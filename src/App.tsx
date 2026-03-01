@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ToastContainer } from "./components/shared/Toast";
 import { LicenseGate } from "./components/license/LicenseGate";
 import { TeacherList } from "./components/teacher/TeacherList";
@@ -15,6 +15,7 @@ import { SeedDataButton } from "./components/shared/SeedDataButton";
 import { HelpView } from "./components/help/HelpView";
 import { DashboardView } from "./components/dashboard/DashboardView";
 import { ComparisonView } from "./components/comparison/ComparisonView";
+import { SetupView } from "./components/settings/SetupView";
 
 type Tab =
   | "dashboard"
@@ -29,26 +30,38 @@ type Tab =
   | "substitution"
   | "comparison"
   | "reports"
+  | "settings"
   | "help";
 
 const tabs: { id: Tab; label: string }[] = [
-  { id: "dashboard", label: "Uebersicht" },
+  { id: "dashboard", label: "Übersicht" },
   { id: "schedule", label: "Stundenplan" },
-  { id: "teachers", label: "Lehrkraefte" },
-  { id: "subjects", label: "Faecher" },
+  { id: "teachers", label: "Lehrkräfte" },
+  { id: "subjects", label: "Fächer" },
   { id: "classes", label: "Klassen" },
-  { id: "rooms", label: "Raeume" },
+  { id: "rooms", label: "Räume" },
   { id: "rules", label: "Regeln" },
   { id: "holidays", label: "Ferien" },
   { id: "absences", label: "Abwesenheiten" },
   { id: "substitution", label: "Vertretung" },
   { id: "comparison", label: "Vergleich" },
   { id: "reports", label: "Bericht" },
+  { id: "settings", label: "Einstellungen" },
   { id: "help", label: "Hilfe" },
 ];
 
+const VALID_TABS = new Set<string>(tabs.map((t) => t.id));
+
 function App() {
-  const [activeTab, setActiveTab] = useState<Tab>("dashboard");
+  const [activeTab, setActiveTab] = useState<Tab>(() => {
+    const saved = localStorage.getItem("stundenplan_active_tab");
+    return saved && VALID_TABS.has(saved) ? (saved as Tab) : "dashboard";
+  });
+
+  const handleTabChange = useCallback((tab: Tab) => {
+    setActiveTab(tab);
+    localStorage.setItem("stundenplan_active_tab", tab);
+  }, []);
 
   return (
     <LicenseGate>
@@ -64,7 +77,7 @@ function App() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
+              onClick={() => handleTabChange(tab.id)}
               className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors whitespace-nowrap ${
                 activeTab === tab.id
                   ? "bg-blue-50 text-blue-700 border-b-2 border-blue-700"
@@ -79,7 +92,7 @@ function App() {
 
       <main className="flex-1 p-4">
         {activeTab === "dashboard" && (
-          <DashboardView onNavigate={setActiveTab} />
+          <DashboardView onNavigate={handleTabChange} />
         )}
         {activeTab === "schedule" && <ScheduleView />}
         {activeTab === "teachers" && <TeacherList />}
@@ -92,6 +105,7 @@ function App() {
         {activeTab === "substitution" && <SubstitutionView />}
         {activeTab === "comparison" && <ComparisonView />}
         {activeTab === "reports" && <ReportView />}
+        {activeTab === "settings" && <SetupView />}
         {activeTab === "help" && <HelpView />}
       </main>
       <ToastContainer />

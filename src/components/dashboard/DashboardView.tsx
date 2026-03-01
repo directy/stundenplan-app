@@ -7,6 +7,7 @@ import { useScheduleStore } from "../../store/scheduleStore";
 import { useHolidayStore } from "../../store/holidayStore";
 import { useAbsenceStore } from "../../store/absenceStore";
 import type { AbsenceType } from "../../types";
+import { Tooltip } from "../shared/Tooltip";
 
 type Tab =
   | "dashboard"
@@ -100,58 +101,63 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
 
   const statCards = [
     {
-      label: "Lehrkraefte",
+      label: "Lehrkräfte",
       count: teachers.length,
       tab: "teachers" as Tab,
       color: "bg-blue-500",
+      tooltip: "Gesamtzahl der erfassten Lehrkräfte. Klicken zum Verwalten.",
     },
     {
-      label: "Faecher",
+      label: "Fächer",
       count: subjects.length,
       tab: "subjects" as Tab,
       color: "bg-green-500",
+      tooltip: "Gesamtzahl der definierten Unterrichtsfächer. Klicken zum Verwalten.",
     },
     {
       label: "Klassen",
       count: classes.length,
       tab: "classes" as Tab,
       color: "bg-purple-500",
+      tooltip: "Gesamtzahl der Schulklassen. Klicken zum Verwalten.",
     },
     {
-      label: "Raeume",
+      label: "Räume",
       count: rooms.length,
       tab: "rooms" as Tab,
       color: "bg-orange-500",
+      tooltip: "Gesamtzahl der verfügbaren Unterrichtsräume. Klicken zum Verwalten.",
     },
   ];
 
   return (
     <div className="space-y-6">
-      <h2 className="text-lg font-semibold text-gray-800">Uebersicht</h2>
+      <h2 className="text-lg font-semibold text-gray-800">Übersicht</h2>
 
       {/* Stammdaten-Karten */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {statCards.map((card) => (
-          <button
-            key={card.label}
-            onClick={() => onNavigate(card.tab)}
-            className="bg-white rounded-lg shadow hover:shadow-md transition-shadow text-left overflow-hidden"
-          >
-            <div className={`h-1.5 ${card.color}`} />
-            <div className="p-4">
-              <div className="text-3xl font-bold text-gray-800">
-                {card.count}
+          <Tooltip key={card.label} content={card.tooltip} position="bottom">
+            <button
+              onClick={() => onNavigate(card.tab)}
+              className="bg-white rounded-lg shadow hover:shadow-md transition-shadow text-left overflow-hidden w-full"
+            >
+              <div className={`h-1.5 ${card.color}`} />
+              <div className="p-4">
+                <div className="text-3xl font-bold text-gray-800">
+                  {card.count}
+                </div>
+                <div className="text-sm text-gray-500 mt-1">{card.label}</div>
               </div>
-              <div className="text-sm text-gray-500 mt-1">{card.label}</div>
-            </div>
-          </button>
+            </button>
+          </Tooltip>
         ))}
       </div>
 
-      {/* Stundenplaene */}
+      {/* Stundenpläne */}
       <div className="bg-white rounded-lg shadow">
         <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-          <h3 className="font-medium text-gray-700">Stundenplaene</h3>
+          <h3 className="font-medium text-gray-700">Stundenpläne</h3>
           <div className="flex gap-3 text-xs text-gray-500">
             <span>
               {statusCounts.draft} Entwurf
@@ -185,7 +191,7 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
                   Status
                 </th>
                 <th className="text-left px-4 py-2 text-sm font-medium text-gray-600">
-                  Gueltig
+                  Gültig
                 </th>
                 <th className="text-right px-4 py-2 text-sm font-medium text-gray-600">
                   Erstellt
@@ -272,10 +278,10 @@ export function DashboardView({ onNavigate }: DashboardViewProps) {
           )}
         </div>
 
-        {/* Naechste Ferien */}
+        {/* Nächste Ferien */}
         <div className="bg-white rounded-lg shadow">
           <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between">
-            <h3 className="font-medium text-gray-700">Naechste Ferien</h3>
+            <h3 className="font-medium text-gray-700">Nächste Ferien</h3>
             <button
               onClick={() => onNavigate("holidays")}
               className="text-xs text-blue-600 hover:text-blue-800"

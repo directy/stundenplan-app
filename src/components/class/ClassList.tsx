@@ -6,6 +6,7 @@ import { Modal } from "../shared/Modal";
 import { ConfirmDialog } from "../shared/ConfirmDialog";
 import { Spinner } from "../shared/Spinner";
 import { ClassForm } from "./ClassForm";
+import { ClassCurriculumEditor } from "./ClassCurriculumEditor";
 
 export function ClassList() {
   const { classes, loading, error, fetchClasses, createClass, updateClass, deleteClass } =
@@ -16,6 +17,7 @@ export function ClassList() {
   const [editingClass, setEditingClass] = useState<SchoolClass | null>(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState<number | null>(null);
   const [formLoading, setFormLoading] = useState(false);
+  const [showCurriculum, setShowCurriculum] = useState(false);
 
   useEffect(() => {
     fetchClasses();
@@ -62,12 +64,22 @@ export function ClassList() {
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold text-gray-800">Klassen</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{classes.length} Eintraege</span>
+          <span className="text-sm text-gray-500">{classes.length} Einträge</span>
+          <button
+            onClick={() => setShowCurriculum(!showCurriculum)}
+            className={`px-3 py-1.5 text-sm rounded-lg transition-colors ${
+              showCurriculum
+                ? "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+            }`}
+          >
+            {showCurriculum ? "Stundentafel ausblenden" : "Stundentafel anzeigen"}
+          </button>
           <button
             onClick={() => setShowForm(true)}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Hinzufuegen
+            Hinzufügen
           </button>
         </div>
       </div>
@@ -82,7 +94,7 @@ export function ClassList() {
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klassenstufe</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Klassenlehrer</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schueleranzahl</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Schüleranzahl</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aktionen</th>
               </tr>
             </thead>
@@ -104,7 +116,7 @@ export function ClassList() {
                       onClick={() => setDeleteConfirmId(c.id)}
                       className="text-red-600 hover:text-red-800"
                     >
-                      Loeschen
+                      Löschen
                     </button>
                   </td>
                 </tr>
@@ -113,6 +125,8 @@ export function ClassList() {
           </table>
         </div>
       )}
+
+      {showCurriculum && <ClassCurriculumEditor />}
 
       <Modal open={showForm} onClose={() => setShowForm(false)} title="Neue Klasse">
         <ClassForm
@@ -141,8 +155,8 @@ export function ClassList() {
 
       <ConfirmDialog
         open={deleteConfirmId !== null}
-        title="Klasse loeschen"
-        message="Soll diese Klasse wirklich geloescht werden?"
+        title="Klasse löschen"
+        message="Soll diese Klasse wirklich gelöscht werden?"
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmId(null)}
       />

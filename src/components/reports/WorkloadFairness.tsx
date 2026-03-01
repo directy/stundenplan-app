@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { TeacherWorkloadItem } from "../../types/report";
 import type { Teacher } from "../../types";
+import { Tooltip } from "../shared/Tooltip";
 
 interface WorkloadFairnessProps {
   workloads: TeacherWorkloadItem[];
@@ -60,21 +61,24 @@ export function WorkloadFairness({
   return (
     <div className="bg-white rounded-lg shadow p-4 mb-4">
       <div className="flex items-center justify-between mb-3">
-        <h3 className="text-sm font-medium text-gray-700">
-          Workload-Fairness
-        </h3>
-        <span
-          className={`text-xs px-2 py-0.5 rounded font-medium ${
-            fairnessScore <= 10
-              ? "bg-green-100 text-green-700"
-              : fairnessScore <= 20
-                ? "bg-yellow-100 text-yellow-700"
-                : "bg-red-100 text-red-700"
-          }`}
-          title="Standardabweichung der Auslastung (niedrig = fair)"
-        >
-          Streuung: {fairnessScore.toFixed(1)}%
-        </span>
+        <Tooltip content="Auslastung jeder Lehrkraft relativ zum maximal möglichen Deputat (Stunden/Tag x 5 Tage x Teilzeitquote). Grün = 60-100%, Gelb = 100-120%, Rot = Über-/Unterlast." position="bottom">
+          <h3 className="text-sm font-medium text-gray-700">
+            Workload-Fairness
+          </h3>
+        </Tooltip>
+        <Tooltip content="Standardabweichung der Auslastungswerte. Niedrige Streuung (< 10%) bedeutet eine faire Verteilung.">
+          <span
+            className={`text-xs px-2 py-0.5 rounded font-medium ${
+              fairnessScore <= 10
+                ? "bg-green-100 text-green-700"
+                : fairnessScore <= 20
+                  ? "bg-yellow-100 text-yellow-700"
+                  : "bg-red-100 text-red-700"
+            }`}
+          >
+            Streuung: {fairnessScore.toFixed(1)}%
+          </span>
+        </Tooltip>
       </div>
       <div className="space-y-2">
         {data.map((d) => (

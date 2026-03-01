@@ -35,7 +35,7 @@ export function LicenseGate({ children }: LicenseGateProps) {
     setError(null);
     try {
       const selected = await open({
-        title: "Lizenzdatei auswaehlen",
+        title: "Lizenzdatei auswählen",
         filters: [{ name: "Lizenzdatei", extensions: ["lic"] }],
         multiple: false,
       });
@@ -62,7 +62,7 @@ export function LicenseGate({ children }: LicenseGateProps) {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-gray-500 text-sm">Lizenz wird geprueft...</div>
+        <div className="text-gray-500 text-sm">Lizenz wird geprüft...</div>
       </div>
     );
   }
@@ -101,7 +101,7 @@ export function LicenseGate({ children }: LicenseGateProps) {
 
         <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-left">
           <p className="text-sm text-amber-800">
-            {status?.reason || "Keine gueltige Lizenz gefunden"}
+            {status?.reason || "Keine gültige Lizenz gefunden"}
           </p>
         </div>
 

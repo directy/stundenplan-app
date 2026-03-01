@@ -42,7 +42,7 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 text-xl leading-none"
-            aria-label="Schliessen"
+            aria-label="Schließen"
           >
             &times;
           </button>

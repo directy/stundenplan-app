@@ -48,6 +48,6 @@ export const useRoomStore = create<RoomState>((set, get) => ({
   deleteRoom: async (id: number) => {
     await invoke("delete_room", { id });
     set({ rooms: get().rooms.filter((r) => r.id !== id) });
-    useToastStore.getState().addToast("success", "Raum geloescht");
+    useToastStore.getState().addToast("success", "Raum gelöscht");
   },
 }));

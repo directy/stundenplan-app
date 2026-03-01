@@ -12,7 +12,7 @@ pub struct Holiday {
     pub created_at: String,
 }
 
-/// Struktur fuer den JSON-Import einer einzelnen Ferienperiode
+/// Struktur für den JSON-Import einer einzelnen Ferienperiode
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HolidayPeriod {
@@ -21,7 +21,7 @@ pub struct HolidayPeriod {
     pub end_date: String,
 }
 
-/// Struktur fuer die gesamte Ferien-JSON-Datei
+/// Struktur für die gesamte Ferien-JSON-Datei
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct HolidayImportData {

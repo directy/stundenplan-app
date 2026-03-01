@@ -131,7 +131,7 @@ mod tests {
 
         // Update
         let update = NewTeacher {
-            name: "Max Mueller".to_string(),
+            name: "Max Müller".to_string(),
             email: Some("max@schule.de".to_string()),
             engagement_score: Some(0.85),
             pedagogical_score: Some(0.9),
@@ -139,7 +139,7 @@ mod tests {
             max_hours_per_day: Some(6),
         };
         let updated = update_teacher(&db.conn, created.id, &update).unwrap();
-        assert_eq!(updated.name, "Max Mueller");
+        assert_eq!(updated.name, "Max Müller");
 
         // Delete
         delete_teacher(&db.conn, created.id).unwrap();

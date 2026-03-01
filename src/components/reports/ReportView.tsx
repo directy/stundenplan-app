@@ -4,6 +4,7 @@ import { useScheduleStore } from "../../store/scheduleStore";
 import { useTeacherStore } from "../../store/teacherStore";
 import { useSubjectStore } from "../../store/subjectStore";
 import { CONSTRAINT_LABELS } from "../../utils/constraintLabels";
+import { Tooltip } from "../shared/Tooltip";
 import { ScoreHeatmap } from "./ScoreHeatmap";
 import { RoomUtilization } from "./RoomUtilization";
 import { SubjectCoverage } from "./SubjectCoverage";
@@ -79,7 +80,7 @@ export function ReportView() {
           onChange={(e) => handleScheduleChange(Number(e.target.value))}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">-- Bitte waehlen --</option>
+          <option value="">-- Bitte wählen --</option>
           {schedules.map((s) => (
             <option key={s.id} value={s.id}>
               {s.name}
@@ -104,7 +105,7 @@ export function ReportView() {
       {/* Kein Plan */}
       {!selectedScheduleId && !loading && (
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-          <p>Bitte einen Stundenplan auswaehlen.</p>
+          <p>Bitte einen Stundenplan auswählen.</p>
         </div>
       )}
 
@@ -113,39 +114,49 @@ export function ReportView() {
         <>
           {/* Zusammenfassung */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-            <SummaryCard
-              label="Eintraege"
-              value={String(report.summary.totalEntries)}
-              sub={`${report.summary.coveragePercent}% Abdeckung`}
-            />
-            <SummaryCard
-              label="Durchschnitt"
-              value={`${(report.summary.averageScore * 100).toFixed(1)}%`}
-              color={scoreColor(report.summary.averageScore)}
-            />
-            <SummaryCard
-              label="Minimum"
-              value={`${(report.summary.minScore * 100).toFixed(1)}%`}
-              color={scoreColor(report.summary.minScore)}
-            />
-            <SummaryCard
-              label="Problemstellen"
-              value={String(report.summary.entriesBelowThreshold)}
-              sub="Score < 40%"
-              color={
-                report.summary.entriesBelowThreshold > 0
-                  ? "text-red-700 bg-red-100"
-                  : "text-green-700 bg-green-100"
-              }
-            />
+            <Tooltip content="Gesamtzahl der platzierten Unterrichtsstunden und Anteil der planmäßig abgedeckten Stunden.">
+              <SummaryCard
+                label="Einträge"
+                value={String(report.summary.totalEntries)}
+                sub={`${report.summary.coveragePercent}% Abdeckung`}
+              />
+            </Tooltip>
+            <Tooltip content="Mittlerer Qualitätsscore aller Einträge. Berücksichtigt alle aktiven Regeln gewichtet. 100% = alle Regeln perfekt erfüllt.">
+              <SummaryCard
+                label="Durchschnitt"
+                value={`${(report.summary.averageScore * 100).toFixed(1)}%`}
+                color={scoreColor(report.summary.averageScore)}
+              />
+            </Tooltip>
+            <Tooltip content="Niedrigster Score eines einzelnen Eintrags. Zeigt die schwächste Stelle im Plan.">
+              <SummaryCard
+                label="Minimum"
+                value={`${(report.summary.minScore * 100).toFixed(1)}%`}
+                color={scoreColor(report.summary.minScore)}
+              />
+            </Tooltip>
+            <Tooltip content="Anzahl der Einträge mit einem Score unter 40%. Diese sollten manuell überprüft werden.">
+              <SummaryCard
+                label="Problemstellen"
+                value={String(report.summary.entriesBelowThreshold)}
+                sub="Score < 40%"
+                color={
+                  report.summary.entriesBelowThreshold > 0
+                    ? "text-red-700 bg-red-100"
+                    : "text-green-700 bg-green-100"
+                }
+              />
+            </Tooltip>
           </div>
 
-          {/* Constraint-Analyse */}
+          {/* Regelanalyse */}
           {report.constraintAnalysis.length > 0 && (
             <div className="bg-white rounded-lg shadow p-4 mb-4">
-              <h3 className="text-sm font-medium text-gray-700 mb-3">
-                Constraint-Analyse
-              </h3>
+              <Tooltip content="Durchschnittliche Erfüllung jeder konfigurierten Regel über alle Planeinträge. Rote Markierungen zeigen Verletzungen." position="bottom">
+                <h3 className="text-sm font-medium text-gray-700 mb-3">
+                  Regelanalyse
+                </h3>
+              </Tooltip>
               <div className="space-y-2">
                 {report.constraintAnalysis.map((c) => (
                   <div key={c.constraintName} className="flex items-center gap-3">
@@ -176,9 +187,11 @@ export function ReportView() {
           {report.teacherWorkloads.length > 0 && (
             <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
               <div className="p-4 pb-2">
-                <h3 className="text-sm font-medium text-gray-700">
-                  Lehrer-Workload ({report.teacherWorkloads.length})
-                </h3>
+                <Tooltip content="Verteilung der Unterrichtsstunden auf die Lehrkräfte mit zugehörigem Qualitätsscore." position="bottom">
+                  <h3 className="text-sm font-medium text-gray-700">
+                    Lehrer-Workload ({report.teacherWorkloads.length})
+                  </h3>
+                </Tooltip>
               </div>
               <table className="w-full">
                 <thead>
@@ -190,7 +203,7 @@ export function ReportView() {
                       Stunden
                     </th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-600">
-                      Faecher
+                      Fächer
                     </th>
                     <th className="text-right px-4 py-2 text-xs font-medium text-gray-600">
                       Klassen
@@ -263,7 +276,7 @@ export function ReportView() {
             <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
               <div className="p-4 pb-2">
                 <h3 className="text-sm font-medium text-gray-700">
-                  Eintraege mit niedrigem Score ({problemEntries.length})
+                  Einträge mit niedrigem Score ({problemEntries.length})
                 </h3>
               </div>
               <table className="w-full">
@@ -285,7 +298,7 @@ export function ReportView() {
                       Score
                     </th>
                     <th className="text-left px-4 py-2 text-xs font-medium text-gray-600">
-                      Schwaechen
+                      Schwächen
                     </th>
                   </tr>
                 </thead>
@@ -339,7 +352,7 @@ export function ReportView() {
             report.summary.totalEntries > 0 && (
               <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                 <p className="text-sm text-green-700">
-                  Alle Eintraege haben einen Score von mindestens 40% – keine
+                  Alle Einträge haben einen Score von mindestens 40% – keine
                   kritischen Problemstellen.
                 </p>
               </div>
@@ -349,7 +362,7 @@ export function ReportView() {
           {report.summary.totalEntries === 0 && (
             <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
               <p className="text-sm">
-                Dieser Stundenplan hat noch keine Eintraege. Bitte zuerst einen
+                Dieser Stundenplan hat noch keine Einträge. Bitte zuerst einen
                 Plan generieren.
               </p>
             </div>

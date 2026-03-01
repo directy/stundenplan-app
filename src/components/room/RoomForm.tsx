@@ -59,7 +59,7 @@ export function RoomForm({ room, onSubmit, onCancel, loading }: RoomFormProps) {
       </div>
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-1">
-          Kapazitaet
+          Kapazität
         </label>
         <input
           type="number"
@@ -83,7 +83,7 @@ export function RoomForm({ room, onSubmit, onCancel, loading }: RoomFormProps) {
           disabled={loading || !name.trim()}
           className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {loading ? "Speichere..." : room ? "Speichern" : "Hinzufuegen"}
+          {loading ? "Speichere..." : room ? "Speichern" : "Hinzufügen"}
         </button>
       </div>
     </form>

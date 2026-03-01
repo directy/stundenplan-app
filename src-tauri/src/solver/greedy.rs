@@ -4,23 +4,23 @@ use rusqlite::Connection;
 use crate::db;
 use crate::error::AppError;
 use crate::models::{
-    NewScheduleEntry, Room, SchoolClass, Subject, Teacher, TeacherPreference, TimeSlot,
+    NewScheduleEntry, Room, SchoolClass, Subject, Teacher, TeacherPreference, TeacherWish, TimeSlot,
 };
 
 use super::constraints;
 use super::scorer;
 use super::types::{
-    AssignmentCandidate, ConstraintWeights, GenerationResult, ScheduleState, SchedulingTask,
-    UnplacedTask,
+    AssignmentCandidate, ConstraintWeights, GenerationResult, ScheduleState, ScoringContext,
+    SchedulingTask, UnplacedTask,
 };
 
 /// Kernfunktion: Generiert einen Stundenplan mit dem Greedy-Algorithmus.
 ///
 /// 1. Validiert den Schedule (muss existieren, Status "draft")
-/// 2. Laedt alle Stammdaten
+/// 2. Lädt alle Stammdaten
 /// 3. Generiert Planungsaufgaben, sortiert nach Schwierigkeit
 /// 4. Weist greedy den besten Kandidaten je Aufgabe zu
-/// 5. Gibt GenerationResult zurueck
+/// 5. Gibt GenerationResult zurück
 pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult, AppError> {
     // 1. Validierung
     let schedule = db::schedules::get_schedule(conn, schedule_id)?;
@@ -31,14 +31,14 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         )));
     }
 
-    // Bestehende Eintraege loeschen (falls Re-Generierung)
+    // Bestehende Einträge löschen (falls Re-Generierung)
     conn.execute(
         "DELETE FROM schedule_entries WHERE schedule_id = ?1",
         [schedule_id],
     )?;
 
     // 2. Alle Stammdaten laden
-    // Lehrer filtern, die waehrend des Gueltigkeitszeitraums komplett abwesend sind
+    // Lehrer filtern, die während des Gültigkeitszeitraums komplett abwesend sind
     let all_teachers = db::teachers::get_teachers(conn)?;
     let teachers: Vec<Teacher> = match (&schedule.valid_from, &schedule.valid_to) {
         (Some(from), Some(to)) => all_teachers
@@ -70,7 +70,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
     let teacher_map: HashMap<i64, &Teacher> = teachers.iter().map(|t| (t.id, t)).collect();
     let subject_map: HashMap<i64, &Subject> = subjects.iter().map(|s| (s.id, s)).collect();
     let class_map: HashMap<i64, &SchoolClass> = classes.iter().map(|c| (c.id, c)).collect();
-    // Raeume nach Typ gruppieren
+    // Räume nach Typ gruppieren
     let mut rooms_by_type: HashMap<String, Vec<&Room>> = HashMap::new();
     for room in &rooms {
         rooms_by_type
@@ -86,7 +86,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         teachers_for_subject.insert(subject.id, qualified.iter().map(|t| t.id).collect());
     }
 
-    // Lehrer-Praeferenzen laden
+    // Lehrer-Präferenzen laden
     let mut teacher_preferences: HashMap<i64, Vec<TeacherPreference>> = HashMap::new();
     for teacher in &teachers {
         let prefs = db::preferences::get_preferences_for_teacher(conn, teacher.id)?;
@@ -95,8 +95,27 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         }
     }
 
-    // Constraint-Gewichte laden
-    let weights = load_constraint_weights(&constraint_rules);
+    // Sonderwünsche und Rankings laden
+    let active_wishes: Vec<TeacherWish> = db::wishes::get_all_active_wishes(conn)?;
+    let rankings = db::rewards::get_teacher_rankings(conn)?;
+    let ranking_multiplier_map: HashMap<i64, f64> = rankings
+        .iter()
+        .map(|r| (r.teacher_id, r.ranking_multiplier))
+        .collect();
+
+    // Scope-aware Gewichte-Cache (pro Kontext)
+    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
+
+    // Fach-Kurzname-Map und verbotene Fachfolgen laden
+    let subject_name_map: HashMap<i64, String> = subjects
+        .iter()
+        .map(|s| (s.id, s.short_name.clone()))
+        .collect();
+    let forbidden_pairs = load_forbidden_subject_pairs(&constraint_rules);
+
+    // Stundentafel-Overrides und Lehrer-Klassen-Einschränkungen laden
+    let class_subject_overrides = db::class_subjects::get_all_class_subject_hours(conn)?;
+    let (hard_class_restrictions, soft_class_preferences) = db::teacher_classes::get_restriction_maps(conn)?;
 
     // 4. Planungsaufgaben generieren
     let mut tasks = build_scheduling_tasks(
@@ -104,9 +123,10 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         &subjects,
         &teachers_for_subject,
         &rooms_by_type,
+        &class_subject_overrides,
     );
 
-    // Nach Schwierigkeit sortieren (schwierigste zuerst, gemaess CLAUDE.md)
+    // Nach Schwierigkeit sortieren (schwierigste zuerst, gemäß CLAUDE.md)
     tasks.sort_by(|a, b| b.difficulty.partial_cmp(&a.difficulty).unwrap_or(std::cmp::Ordering::Equal));
 
     // 5. Greedy-Zuweisung
@@ -123,6 +143,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
             &teacher_map,
             &rooms_by_type,
             &state,
+            &hard_class_restrictions,
         );
 
         if candidates.is_empty() {
@@ -136,7 +157,7 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
                 class_id: task.class_id,
                 subject_id: task.subject_id,
                 reason: format!(
-                    "Keine Hard-Constraint-konformen Kandidaten fuer {} in Klasse {} gefunden",
+                    "Keine Hard-Constraint-konformen Kandidaten für {} in Klasse {} gefunden",
                     subject_name, class_name
                 ),
             });
@@ -148,6 +169,12 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
         let class = class_map.get(&task.class_id).unwrap();
         let prefs_empty = Vec::new();
 
+        // Effektive Wochenstunden für Scoring
+        let effective_hours = class_subject_overrides
+            .get(&(task.class_id, task.subject_id))
+            .copied()
+            .unwrap_or(subject.weekly_hours_default);
+
         let mut best_scored = None;
         let candidates_count = candidates.len();
 
@@ -155,18 +182,45 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
             let teacher_prefs = teacher_preferences
                 .get(&candidate.teacher_id)
                 .unwrap_or(&prefs_empty);
+            let r_mult = ranking_multiplier_map
+                .get(&candidate.teacher_id)
+                .copied()
+                .unwrap_or(1.0);
 
-            let scored = scorer::score_candidate(
+            let ctx_key = (task.class_id, candidate.teacher_id, candidate.room_id);
+            let weights = weights_cache
+                .entry(ctx_key)
+                .or_insert_with(|| {
+                    let ctx = ScoringContext {
+                        class_id: task.class_id,
+                        teacher_id: candidate.teacher_id,
+                        room_id: candidate.room_id,
+                    };
+                    load_constraint_weights_for_context(&constraint_rules, &ctx)
+                });
+
+            let mut scored = scorer::score_candidate(
                 &state,
                 candidate,
                 task.class_id,
                 task.subject_id,
                 &subject.short_name,
-                subject.weekly_hours_default,
+                effective_hours,
                 class.class_teacher_id,
                 teacher_prefs,
-                &weights,
+                &active_wishes,
+                r_mult,
+                weights,
+                &subject_name_map,
+                &forbidden_pairs,
             );
+
+            // Soft-Bonus für Klassenpräferenz
+            if let Some(pref_classes) = soft_class_preferences.get(&candidate.teacher_id) {
+                if pref_classes.contains(&task.class_id) {
+                    scored.total_score += 0.05;
+                }
+            }
 
             match &best_scored {
                 None => best_scored = Some(scored),
@@ -219,29 +273,42 @@ pub fn generate(conn: &Connection, schedule_id: i64) -> Result<GenerationResult,
     })
 }
 
-/// Generiert Planungsaufgaben: Pro (Klasse, Fach) je weekly_hours_default Tasks.
-/// Berechnet Schwierigkeit basierend auf Anzahl qualifizierter Lehrer und Raumverfuegbarkeit.
+/// Generiert Planungsaufgaben: Pro (Klasse, Fach) je effective_weekly_hours Tasks.
+/// Berechnet Schwierigkeit basierend auf Anzahl qualifizierter Lehrer und Raumverfügbarkeit.
+/// Stundentafel-Overrides haben Vorrang vor dem globalen weekly_hours_default.
 fn build_scheduling_tasks(
     classes: &[SchoolClass],
     subjects: &[Subject],
     teachers_for_subject: &HashMap<i64, Vec<i64>>,
     rooms_by_type: &HashMap<String, Vec<&Room>>,
+    class_subject_overrides: &HashMap<(i64, i64), i32>,
 ) -> Vec<SchedulingTask> {
     let mut tasks = Vec::new();
 
     for class in classes {
         for subject in subjects {
+            // Effektive Wochenstunden: Override > Default
+            let weekly_hours = class_subject_overrides
+                .get(&(class.id, subject.id))
+                .copied()
+                .unwrap_or(subject.weekly_hours_default);
+
+            // 0 Stunden = Fach nicht in dieser Klasse
+            if weekly_hours == 0 {
+                continue;
+            }
+
             let qualified = teachers_for_subject
                 .get(&subject.id)
                 .cloned()
                 .unwrap_or_default();
 
-            // Nur Tasks fuer Faecher mit qualifizierten Lehrern erzeugen
+            // Nur Tasks für Fächer mit qualifizierten Lehrern erzeugen
             if qualified.is_empty() {
                 continue;
             }
 
-            // Raeume des passenden Typs zaehlen
+            // Räume des passenden Typs zählen
             let room_count = rooms_by_type
                 .get(&subject.room_type)
                 .map_or(0, |r| r.len());
@@ -250,13 +317,12 @@ fn build_scheduling_tasks(
                 continue;
             }
 
-            // Schwierigkeit: wenige Lehrer / wenige Raeume = schwieriger
+            // Schwierigkeit: wenige Lehrer / wenige Räume = schwieriger
             let teacher_factor = 1.0 / (qualified.len() as f64);
             let room_factor = 1.0 / (room_count as f64);
             let difficulty = teacher_factor + room_factor;
 
-            // weekly_hours_default Tasks pro (Klasse, Fach)
-            for _ in 0..subject.weekly_hours_default {
+            for _ in 0..weekly_hours {
                 tasks.push(SchedulingTask {
                     class_id: class.id,
                     subject_id: subject.id,
@@ -271,13 +337,14 @@ fn build_scheduling_tasks(
     tasks
 }
 
-/// Generiert alle Hard-Constraint-konformen Kandidaten fuer eine Aufgabe.
+/// Generiert alle Hard-Constraint-konformen Kandidaten für eine Aufgabe.
 fn generate_candidates(
     task: &SchedulingTask,
     time_slots: &[TimeSlot],
     teacher_map: &HashMap<i64, &Teacher>,
     rooms_by_type: &HashMap<String, Vec<&Room>>,
     state: &ScheduleState,
+    hard_class_restrictions: &HashMap<i64, std::collections::HashSet<i64>>,
 ) -> Vec<AssignmentCandidate> {
     let mut candidates = Vec::new();
 
@@ -293,6 +360,14 @@ fn generate_candidates(
                 None => continue,
             };
 
+            // Hard Constraint: Lehrer-Klassen-Einschränkung (qualification)
+            // Wenn der Lehrer qualification-Einträge hat, darf er NUR diese Klassen unterrichten
+            if let Some(allowed_classes) = hard_class_restrictions.get(&teacher_id) {
+                if !allowed_classes.contains(&task.class_id) {
+                    continue;
+                }
+            }
+
             for room in matching_rooms {
                 let candidate = AssignmentCandidate {
                     time_slot_id: slot.id,
@@ -302,7 +377,7 @@ fn generate_candidates(
                     room_id: room.id,
                 };
 
-                // Hard Constraints pruefen
+                // Hard Constraints prüfen
                 if constraints::check_all_hard_constraints(
                     state,
                     task.class_id,
@@ -372,38 +447,98 @@ fn update_state(
         .entry((class_id, subject_id))
         .or_default()
         .insert(candidate.day_of_week);
+
+    state
+        .teacher_day_periods
+        .entry((candidate.teacher_id, candidate.day_of_week))
+        .or_default()
+        .insert(candidate.period);
 }
 
-/// Laedt Constraint-Gewichte aus den constraint_rules.
-/// Inaktive Regeln erhalten Gewicht 0.0.
-pub(crate) fn load_constraint_weights(
+/// Lädt Constraint-Gewichte scope-aware für einen bestimmten Kontext.
+/// Scope-Regeln überschreiben globale Regeln; bei mehreren Scopes gewinnt das höchste Gewicht.
+pub(crate) fn load_constraint_weights_for_context(
     rules: &[crate::models::ConstraintRule],
+    ctx: &ScoringContext,
 ) -> ConstraintWeights {
-    let mut weights = ConstraintWeights {
-        no_sports_after_math: 0.0,
-        even_weekly_distribution: 0.0,
-        avoid_edge_periods: 0.0,
-        minimize_gaps: 0.0,
-        class_teacher_first_period: 0.0,
-        main_subjects_morning: 0.0,
-        teacher_preferences: 0.0,
-    };
+    // Für jeden Regeltyp: effektives Gewicht bestimmen
+    // HashMap<rule_type, (weight, is_scoped)> — scoped übertrumpft global, höchstes Gewicht gewinnt bei Konflikt
+    let mut effective: std::collections::HashMap<&str, (f64, bool)> = std::collections::HashMap::new();
 
     for rule in rules {
-        let w = if rule.is_active { rule.weight } else { 0.0 };
-        match rule.rule_type.as_str() {
-            "no_sports_after_math" => weights.no_sports_after_math = w,
-            "even_weekly_distribution" => weights.even_weekly_distribution = w,
-            "avoid_edge_periods" => weights.avoid_edge_periods = w,
-            "minimize_gaps" => weights.minimize_gaps = w,
-            "class_teacher_first_period" => weights.class_teacher_first_period = w,
-            "main_subjects_morning" => weights.main_subjects_morning = w,
-            "teacher_preferences" => weights.teacher_preferences = w,
-            _ => {} // Unbekannte Regel ignorieren
+        if !rule.is_active { continue; }
+
+        let applies = match rule.scope_type.as_str() {
+            "global" => true,
+            "class" => rule.scope_id == Some(ctx.class_id),
+            "teacher" => rule.scope_id == Some(ctx.teacher_id),
+            "room" => rule.scope_id == Some(ctx.room_id),
+            _ => true,
+        };
+        if !applies { continue; }
+
+        let is_scoped = rule.scope_type != "global";
+        let key = rule.rule_type.as_str();
+
+        match effective.get(key) {
+            None => { effective.insert(key, (rule.weight, is_scoped)); }
+            Some(&(_, existing_scoped)) => {
+                if is_scoped && !existing_scoped {
+                    // Scoped ersetzt global
+                    effective.insert(key, (rule.weight, true));
+                } else if is_scoped == existing_scoped && rule.weight > effective[key].0 {
+                    // Gleiche Scope-Ebene: höchstes Gewicht gewinnt
+                    effective.insert(key, (rule.weight, is_scoped));
+                }
+            }
         }
     }
 
-    weights
+    let get_w = |key: &str| effective.get(key).map(|&(w, _)| w).unwrap_or(0.0);
+
+    ConstraintWeights {
+        forbidden_subject_sequence: get_w("forbidden_subject_sequence"),
+        even_weekly_distribution: get_w("even_weekly_distribution"),
+        avoid_edge_periods: get_w("avoid_edge_periods"),
+        minimize_gaps: get_w("minimize_gaps"),
+        class_teacher_first_period: get_w("class_teacher_first_period"),
+        main_subjects_morning: get_w("main_subjects_morning"),
+        teacher_preferences: get_w("teacher_preferences"),
+        teacher_wishes: get_w("teacher_wishes"),
+    }
+}
+
+/// Lädt verbotene Fächerpaare aus allen forbidden_subject_sequence-Regeln.
+/// Neues Format: {"first":"Sport","second":"Mathe"} (ein Paar pro Regel)
+/// Legacy-Format: {"pairs":[...]} (mehrere Paare in einer Regel)
+/// Fallback: Sport/Mathe wenn keine Paare konfiguriert.
+pub(crate) fn load_forbidden_subject_pairs(
+    rules: &[crate::models::ConstraintRule],
+) -> Vec<(String, String)> {
+    let mut pairs = Vec::new();
+    for rule in rules {
+        if rule.rule_type == "forbidden_subject_sequence" && rule.is_active {
+            if let Ok(params) = serde_json::from_str::<serde_json::Value>(&rule.parameters) {
+                // Neues Format: einzelnes Paar direkt
+                if let (Some(first), Some(second)) = (params["first"].as_str(), params["second"].as_str()) {
+                    pairs.push((first.to_string(), second.to_string()));
+                }
+                // Legacy-Format: pairs-Array
+                if let Some(pair_array) = params["pairs"].as_array() {
+                    for p in pair_array {
+                        if let (Some(f), Some(s)) = (p["first"].as_str(), p["second"].as_str()) {
+                            pairs.push((f.to_string(), s.to_string()));
+                        }
+                    }
+                }
+            }
+        }
+    }
+    if pairs.is_empty() {
+        pairs.push(("Sport".to_string(), "Mathe".to_string()));
+        pairs.push(("Sp".to_string(), "Ma".to_string()));
+    }
+    pairs
 }
 
 // =============================================================================
@@ -416,7 +551,7 @@ mod tests {
     use crate::db::connection::Database;
     use crate::models::*;
 
-    /// Erstellt eine Test-DB mit Seed-Daten und gibt die Verbindung zurueck.
+    /// Erstellt eine Test-DB mit Seed-Daten und gibt die Verbindung zurück.
     fn setup_test_db() -> Database {
         let db = Database::new_in_memory().unwrap();
         db::time_slots::seed_default_time_slots(&db.conn).unwrap();
@@ -434,7 +569,7 @@ mod tests {
             &NewSchedule { name: "Test".into(), status: None, valid_from: None, valid_to: None },
         ).unwrap();
 
-        // Generieren: keine Klassen/Faecher/Lehrer -> 0 Eintraege
+        // Generieren: keine Klassen/Fächer/Lehrer -> 0 Einträge
         let result = generate(&db.conn, schedule.id).unwrap();
         assert_eq!(result.entries_created, 0);
         assert!(result.unplaced_tasks.is_empty());
@@ -492,11 +627,11 @@ mod tests {
         assert!(result.unplaced_tasks.is_empty());
         assert!(result.average_score > 0.0);
 
-        // Eintraege pruefen
+        // Einträge prüfen
         let entries = db::schedule_entries::get_schedule_entries(&db.conn, schedule.id).unwrap();
         assert_eq!(entries.len(), 2);
 
-        // Decision-Log pruefen
+        // Decision-Log prüfen
         for entry in &entries {
             let log: serde_json::Value = serde_json::from_str(&entry.decision_log).unwrap();
             assert_eq!(log["algorithm"], "greedy");
@@ -547,7 +682,7 @@ mod tests {
             &NewSchedule { name: "Test".into(), status: None, valid_from: None, valid_to: None },
         ).unwrap();
 
-        // Generieren: kein qualifizierter Lehrer => Tasks werden uebersprungen
+        // Generieren: kein qualifizierter Lehrer => Tasks werden übersprungen
         let result = generate(&db.conn, schedule.id).unwrap();
         assert_eq!(result.entries_created, 0);
         // Keine Unplaced-Tasks, da build_scheduling_tasks bereits filtert
@@ -558,9 +693,9 @@ mod tests {
     fn test_no_double_bookings() {
         let db = setup_test_db();
 
-        // 1 Lehrer, 2 Faecher, 2 Klassen -> Lehrer kann nicht doppelt belegt werden
+        // 1 Lehrer, 2 Fächer, 2 Klassen -> Lehrer kann nicht doppelt belegt werden
         let teacher = db::teachers::create_teacher(&db.conn, &NewTeacher {
-            name: "Frau Mueller".into(),
+            name: "Frau Müller".into(),
             email: None,
             engagement_score: Some(0.5),
             pedagogical_score: Some(0.5),
@@ -599,7 +734,7 @@ mod tests {
             student_count: Some(25),
         }).unwrap();
 
-        // 2 Raeume damit es nicht am Raum scheitert
+        // 2 Räume damit es nicht am Raum scheitert
         db::rooms::create_room(&db.conn, &NewRoom {
             name: "Raum 101".into(),
             room_type: Some("standard".into()),
@@ -618,7 +753,7 @@ mod tests {
 
         let result = generate(&db.conn, schedule.id).unwrap();
 
-        // Pruefen: kein Lehrer doppelt im selben Zeitslot
+        // Prüfen: kein Lehrer doppelt im selben Zeitslot
         let entries = db::schedule_entries::get_schedule_entries(&db.conn, schedule.id).unwrap();
         let mut teacher_slot_set: std::collections::HashSet<(i64, i64)> = std::collections::HashSet::new();
         for entry in &entries {
@@ -631,7 +766,7 @@ mod tests {
             );
         }
 
-        // Pruefen: kein Raum doppelt im selben Zeitslot
+        // Prüfen: kein Raum doppelt im selben Zeitslot
         let mut room_slot_set: std::collections::HashSet<(i64, i64)> = std::collections::HashSet::new();
         for entry in &entries {
             let key = (entry.room_id, entry.time_slot_id);
@@ -643,7 +778,7 @@ mod tests {
             );
         }
 
-        // 2 Klassen x (4+4) Stunden = 16 gewuenschte Eintraege
+        // 2 Klassen x (4+4) Stunden = 16 gewünschte Einträge
         // Bei nur 1 Lehrer: maximal so viele wie Zeitslots (45), aber 16 sollte passen
         assert_eq!(result.entries_created, 16);
         assert!(result.unplaced_tasks.is_empty());

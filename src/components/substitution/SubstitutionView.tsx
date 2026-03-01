@@ -6,7 +6,7 @@ import type { AffectedEntry, SubstitutionCandidate } from "../../types";
 const SCORE_LABELS: Record<string, string> = {
   engagement: "Engagement",
   substitutionLoad: "Vertretungslast",
-  pedagogical: "Paedagogik",
+  pedagogical: "Pädagogik",
   weeklyLoad: "Wochenbelastung",
   subjectQualification: "Fachqualifikation",
 };
@@ -67,7 +67,7 @@ export function SubstitutionView() {
     setSelectedDate(date);
     clearCandidates();
 
-    // Wochenende pruefen
+    // Wochenende prüfen
     const d = new Date(date + "T00:00:00");
     const day = d.getDay();
     if (day === 0 || day === 6) {
@@ -154,7 +154,7 @@ export function SubstitutionView() {
               onChange={(e) => handleScheduleChange(Number(e.target.value))}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
-              <option value="">-- Bitte waehlen --</option>
+              <option value="">-- Bitte wählen --</option>
               {schedules.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.name}
@@ -194,7 +194,7 @@ export function SubstitutionView() {
       {/* Kein Plan ausgewaehlt */}
       {!selectedScheduleId && !isWeekend && !isHoliday && (
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-          <p>Bitte einen Stundenplan auswaehlen.</p>
+          <p>Bitte einen Stundenplan auswählen.</p>
         </div>
       )}
 
@@ -217,7 +217,7 @@ export function SubstitutionView() {
             ) : affectedEntries.length === 0 ? (
               <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
                 <p className="text-sm">
-                  Keine Vertretungen noetig – alle Lehrkraefte anwesend.
+                  Keine Vertretungen nötig – alle Lehrkräfte anwesend.
                 </p>
               </div>
             ) : (
@@ -275,7 +275,7 @@ export function SubstitutionView() {
             {selectedEntry ? (
               <>
                 <h3 className="text-sm font-medium text-gray-700 mb-2">
-                  Kandidaten fuer {selectedEntry.period}. Stunde /{" "}
+                  Kandidaten für {selectedEntry.period}. Stunde /{" "}
                   {selectedEntry.className} / {selectedEntry.subjectName}
                 </h3>
 
@@ -286,7 +286,7 @@ export function SubstitutionView() {
                 ) : candidates.length === 0 ? (
                   <div className="bg-white rounded-lg shadow p-6 text-center text-gray-500">
                     <p className="text-sm">
-                      Keine Vertretung verfuegbar – alle Lehrkraefte sind
+                      Keine Vertretung verfügbar – alle Lehrkräfte sind
                       belegt oder abwesend.
                     </p>
                   </div>
@@ -342,7 +342,7 @@ export function SubstitutionView() {
                       Score
                     </th>
                     <th className="text-left px-4 py-2 text-sm font-medium text-gray-600">
-                      Begruendung
+                      Begründung
                     </th>
                   </tr>
                 </thead>
@@ -389,7 +389,7 @@ function CandidateCard({
 }) {
   const [expanded, setExpanded] = useState(false);
   const breakdown = candidate.scoreBreakdown;
-  const maxComponent = 0.25; // Max moeglicher Einzelwert (W_SUBSTITUTION_LOAD)
+  const maxComponent = 0.25; // Max möglicher Einzelwert (W_SUBSTITUTION_LOAD)
 
   return (
     <div className="bg-white rounded-lg shadow p-3 border border-gray-200">
@@ -454,12 +454,12 @@ function CandidateCard({
         ))}
       </div>
 
-      {/* Begruendung (aufklappbar) */}
+      {/* Begründung (aufklappbar) */}
       <button
         onClick={() => setExpanded(!expanded)}
         className="mt-2 text-xs text-blue-600 hover:text-blue-800"
       >
-        {expanded ? "Begruendung ausblenden" : "Begruendung anzeigen"}
+        {expanded ? "Begründung ausblenden" : "Begründung anzeigen"}
       </button>
       {expanded && (
         <p className="mt-1 text-xs text-gray-600 bg-gray-50 rounded p-2">

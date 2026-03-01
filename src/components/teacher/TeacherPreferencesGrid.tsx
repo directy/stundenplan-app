@@ -6,10 +6,12 @@ const DAY_NAMES = ["Mo", "Di", "Mi", "Do", "Fr"];
 
 interface TeacherPreferencesGridProps {
   teacherId: number;
+  readOnly?: boolean;
 }
 
 export function TeacherPreferencesGrid({
   teacherId,
+  readOnly = false,
 }: TeacherPreferencesGridProps) {
   const { preferences, loading, fetchPreferences, createPreference, deletePreference } =
     usePreferenceStore();
@@ -51,14 +53,16 @@ export function TeacherPreferencesGrid({
   };
 
   if (loading) {
-    return <div className="text-sm text-gray-500 py-2">Lade Praeferenzen...</div>;
+    return <div className="text-sm text-gray-500 py-2">Lade Präferenzen...</div>;
   }
 
   return (
     <div>
-      <p className="text-sm text-gray-600 mb-3">
-        Klicken Sie auf eine Zelle, um den Status zu wechseln: neutral → bevorzugt → nicht verfuegbar → neutral
-      </p>
+      {!readOnly && (
+        <p className="text-sm text-gray-600 mb-3">
+          Klicken Sie auf eine Zelle, um den Status zu wechseln: neutral → bevorzugt → nicht verfügbar → neutral
+        </p>
+      )}
 
       <div className="inline-block">
         <div className="grid grid-cols-[50px_repeat(5,56px)] gap-px bg-gray-300 rounded overflow-hidden">
@@ -90,20 +94,21 @@ export function TeacherPreferencesGrid({
                 let cellClass = "bg-white";
                 let cellText = "";
                 if (type === "preferred") {
-                  cellClass = "bg-green-200 hover:bg-green-300";
+                  cellClass = readOnly ? "bg-green-200" : "bg-green-200 hover:bg-green-300";
                   cellText = "✓";
                 } else if (type === "unavailable") {
-                  cellClass = "bg-red-200 hover:bg-red-300";
+                  cellClass = readOnly ? "bg-red-200" : "bg-red-200 hover:bg-red-300";
                   cellText = "✗";
                 } else {
-                  cellClass = "bg-white hover:bg-gray-100";
+                  cellClass = readOnly ? "bg-white" : "bg-white hover:bg-gray-100";
                 }
 
                 return (
                   <button
                     key={`${day}-${period}`}
-                    onClick={() => handleCellClick(day, period)}
-                    className={`${cellClass} p-1.5 text-xs text-center cursor-pointer transition-colors min-h-[28px]`}
+                    onClick={readOnly ? undefined : () => handleCellClick(day, period)}
+                    disabled={readOnly}
+                    className={`${cellClass} p-1.5 text-xs text-center ${readOnly ? "cursor-default" : "cursor-pointer"} transition-colors min-h-[28px]`}
                   >
                     {cellText}
                   </button>
@@ -122,7 +127,7 @@ export function TeacherPreferencesGrid({
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded bg-red-200 border border-red-400" />
-          Nicht verfuegbar
+          Nicht verfügbar
         </div>
         <div className="flex items-center gap-1.5">
           <span className="inline-block w-3 h-3 rounded bg-white border border-gray-300" />
@@ -133,7 +138,7 @@ export function TeacherPreferencesGrid({
       {preferences.length > 0 && (
         <div className="mt-2 text-xs text-gray-500">
           {preferences.filter((p) => p.preferenceType === "preferred").length} bevorzugt,{" "}
-          {preferences.filter((p) => p.preferenceType === "unavailable").length} nicht verfuegbar
+          {preferences.filter((p) => p.preferenceType === "unavailable").length} nicht verfügbar
         </div>
       )}
     </div>

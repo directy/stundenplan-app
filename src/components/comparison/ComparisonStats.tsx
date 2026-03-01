@@ -15,12 +15,12 @@ export function ComparisonStats({ stats }: ComparisonStatsProps) {
       </span>
       {stats.changed > 0 && (
         <span className="px-3 py-1 text-sm rounded-full bg-amber-100 text-amber-800">
-          Geaendert: <strong>{stats.changed}</strong>
+          Geändert: <strong>{stats.changed}</strong>
         </span>
       )}
       {stats.added > 0 && (
         <span className="px-3 py-1 text-sm rounded-full bg-green-100 text-green-800">
-          Hinzugefuegt: <strong>{stats.added}</strong>
+          Hinzugefügt: <strong>{stats.added}</strong>
         </span>
       )}
       {stats.removed > 0 && (

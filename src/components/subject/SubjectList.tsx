@@ -47,33 +47,33 @@ export function SubjectList() {
     setDeleteConfirmId(null);
   };
 
-  if (loading) return <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Faecher...</div>;
+  if (loading) return <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Fächer...</div>;
   if (error) return <div className="text-red-600">Fehler: {error}</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">Faecher</h2>
+        <h2 className="text-lg font-semibold text-gray-800">Fächer</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{subjects.length} Eintraege</span>
+          <span className="text-sm text-gray-500">{subjects.length} Einträge</span>
           <button
             onClick={() => setShowForm(true)}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Hinzufuegen
+            Hinzufügen
           </button>
         </div>
       </div>
 
       {subjects.length === 0 ? (
-        <p className="text-gray-500">Noch keine Faecher angelegt.</p>
+        <p className="text-gray-500">Noch keine Fächer angelegt.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kuerzel</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kürzel</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Raumtyp</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Std./Woche</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aktionen</th>
@@ -99,7 +99,7 @@ export function SubjectList() {
                       onClick={() => setDeleteConfirmId(subject.id)}
                       className="text-red-600 hover:text-red-800"
                     >
-                      Loeschen
+                      Löschen
                     </button>
                   </td>
                 </tr>
@@ -138,8 +138,8 @@ export function SubjectList() {
 
       <ConfirmDialog
         open={deleteConfirmId !== null}
-        title="Fach loeschen"
-        message="Soll dieses Fach wirklich geloescht werden? Dies kann nicht rueckgaengig gemacht werden."
+        title="Fach löschen"
+        message="Soll dieses Fach wirklich gelöscht werden? Dies kann nicht rückgängig gemacht werden."
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmId(null)}
       />

@@ -80,7 +80,7 @@ export function EntryDetailModal({
             </span>
             {parsedLog.candidates_evaluated !== undefined && (
               <span className="text-xs text-gray-400 ml-2">
-                ({parsedLog.candidates_evaluated} Kandidaten geprueft)
+                ({parsedLog.candidates_evaluated} Kandidaten geprüft)
               </span>
             )}
           </div>
@@ -89,7 +89,7 @@ export function EntryDetailModal({
         {parsedLog.soft_scores && (
           <div className="mb-4">
             <h4 className="text-sm font-medium text-gray-700 mb-2">
-              Constraint-Bewertung
+              Regelbewertung
             </h4>
             <div className="space-y-1.5">
               {Object.entries(parsedLog.soft_scores).map(([name, score]) => (
@@ -137,7 +137,7 @@ export function EntryDetailModal({
           onClick={onClose}
           className="mt-4 w-full py-2 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
         >
-          Schliessen
+          Schließen
         </button>
       </div>
     </div>

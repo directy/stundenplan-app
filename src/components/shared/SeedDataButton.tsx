@@ -9,19 +9,24 @@ import { ConfirmDialog } from "./ConfirmDialog";
 
 const SCHOOL_TYPES: { type: SchoolType; label: string; description: string }[] = [
   {
+    type: "vollstaendig",
+    label: "Vollständiges Beispiel",
+    description: "Gymnasium + Belohnungspunkte, Sonderwünsche, Fachfolge-Regeln für alle Features",
+  },
+  {
     type: "gymnasium",
-    label: "Gymnasium (gross)",
-    description: "~80 Lehrkraefte, 16 Faecher, 24 Klassen (5-12), 40 Raeume",
+    label: "Gymnasium (groß)",
+    description: "~80 Lehrkräfte, 16 Fächer, 24 Klassen (5-12), 40 Räume",
   },
   {
     type: "grundschule",
     label: "Grundschule (mittel)",
-    description: "~25 Lehrkraefte, 9 Faecher, 12 Klassen (1-4), 15 Raeume",
+    description: "~25 Lehrkräfte, 9 Fächer, 12 Klassen (1-4), 15 Räume",
   },
   {
     type: "mittelschule",
     label: "Mittelschule (klein)",
-    description: "~35 Lehrkraefte, 13 Faecher, 15 Klassen (5-10), 20 Raeume",
+    description: "~35 Lehrkräfte, 13 Fächer, 15 Klassen (5-10), 20 Räume",
   },
 ];
 
@@ -115,10 +120,10 @@ export function SeedDataButton() {
             </button>
           </div>
           <div className="text-xs text-green-700 space-y-1">
-            <div>{result.teachersCreated} Lehrkraefte</div>
-            <div>{result.subjectsCreated} Faecher</div>
+            <div>{result.teachersCreated} Lehrkräfte</div>
+            <div>{result.subjectsCreated} Fächer</div>
             <div>{result.classesCreated} Klassen</div>
-            <div>{result.roomsCreated} Raeume</div>
+            <div>{result.roomsCreated} Räume</div>
             <div>{result.assignmentsCreated} Fachzuordnungen</div>
           </div>
         </div>
@@ -127,7 +132,7 @@ export function SeedDataButton() {
       <ConfirmDialog
         open={selectedType !== null && !loading}
         title="Beispieldaten laden"
-        message="Alle vorhandenen Stammdaten (Lehrkraefte, Faecher, Klassen, Raeume) werden geloescht und durch Beispieldaten ersetzt. Stundenplaene und Ferien bleiben erhalten. Fortfahren?"
+        message="Alle vorhandenen Stammdaten (Lehrkräfte, Fächer, Klassen, Räume) werden gelöscht und durch Beispieldaten ersetzt. Stundenpläne und Ferien bleiben erhalten. Fortfahren?"
         confirmLabel={loading ? "Lade..." : "Laden"}
         onConfirm={handleSeed}
         onCancel={() => setSelectedType(null)}

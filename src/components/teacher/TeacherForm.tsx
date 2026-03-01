@@ -54,7 +54,7 @@ export function TeacherForm({
           onChange={(e) => setName(e.target.value)}
           required
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="z.B. Anna Mueller"
+          placeholder="z.B. Anna Müller"
         />
       </div>
       <div>
@@ -66,7 +66,7 @@ export function TeacherForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-          placeholder="z.B. mueller@schule.de"
+          placeholder="z.B. müller@schule.de"
         />
       </div>
       <div className="grid grid-cols-2 gap-4">
@@ -125,7 +125,7 @@ export function TeacherForm({
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
-            Paedagogik
+            Pädagogik
           </label>
           <div className="flex items-center gap-2">
             <input
@@ -156,7 +156,7 @@ export function TeacherForm({
           disabled={loading || !name.trim()}
           className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
         >
-          {loading ? "Speichere..." : teacher ? "Speichern" : "Hinzufuegen"}
+          {loading ? "Speichere..." : teacher ? "Speichern" : "Hinzufügen"}
         </button>
       </div>
     </form>

@@ -41,3 +41,22 @@ export type {
   TeacherWorkloadItem,
 } from "./report";
 export type { SeedResult, SchoolType } from "./seed";
+export type {
+  RewardPoint,
+  NewRewardPoint,
+  TeacherRanking,
+  RewardCategory,
+} from "./reward";
+export type {
+  TeacherWish,
+  NewTeacherWish,
+  WishType,
+  WishPriority,
+} from "./wish";
+export type { AppSetting } from "./setting";
+export type { ClassSubject, NewClassSubject } from "./classCurriculum";
+export type {
+  TeacherClassRestriction,
+  NewTeacherClassRestriction,
+  RestrictionType,
+} from "./teacherClass";

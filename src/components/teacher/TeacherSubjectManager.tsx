@@ -49,17 +49,17 @@ export function TeacherSubjectManager({
   };
 
   if (loading) {
-    return <div className="text-sm text-gray-500 py-2">Lade Faecher...</div>;
+    return <div className="text-sm text-gray-500 py-2">Lade Fächer...</div>;
   }
 
   return (
     <div className="py-2">
       <div className="text-xs font-medium text-gray-500 uppercase mb-2">
-        Zugewiesene Faecher
+        Zugewiesene Fächer
       </div>
       <div className="flex flex-wrap gap-2 mb-3">
         {assigned.length === 0 ? (
-          <span className="text-sm text-gray-400">Keine Faecher zugewiesen</span>
+          <span className="text-sm text-gray-400">Keine Fächer zugewiesen</span>
         ) : (
           assigned.map((s) => (
             <span
@@ -89,7 +89,7 @@ export function TeacherSubjectManager({
             }
             className="flex-1 px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Fach auswaehlen...</option>
+            <option value="">Fach auswählen...</option>
             {available.map((s) => (
               <option key={s.id} value={s.id}>
                 {s.shortName} – {s.name}
@@ -101,7 +101,7 @@ export function TeacherSubjectManager({
             disabled={selectedSubjectId === ""}
             className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 transition-colors"
           >
-            Hinzufuegen
+            Hinzufügen
           </button>
         </div>
       )}

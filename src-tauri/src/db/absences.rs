@@ -129,7 +129,7 @@ pub fn delete_absence(conn: &Connection, id: i64) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Gibt alle Lehrer-IDs zurueck, die an einem bestimmten Datum abwesend sind.
+/// Gibt alle Lehrer-IDs zurück, die an einem bestimmten Datum abwesend sind.
 pub fn get_absent_teacher_ids_on_date(conn: &Connection, date: &str) -> Result<Vec<i64>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT DISTINCT teacher_id FROM teacher_absences
@@ -143,8 +143,8 @@ pub fn get_absent_teacher_ids_on_date(conn: &Connection, date: &str) -> Result<V
     Ok(ids)
 }
 
-/// Prueft ob ein Lehrer in einem bestimmten Zeitraum abwesend ist.
-/// Gibt true zurueck wenn eine Abwesenheit den gesamten Zeitraum abdeckt.
+/// Prüft ob ein Lehrer in einem bestimmten Zeitraum abwesend ist.
+/// Gibt true zurück wenn eine Abwesenheit den gesamten Zeitraum abdeckt.
 pub fn is_teacher_absent_in_range(
     conn: &Connection,
     teacher_id: i64,
@@ -252,11 +252,11 @@ mod tests {
             absence_type: "illness".into(),
             start_date: "2026-01-10".into(),
             end_date: "2026-02-10".into(),
-            note: Some("Verlaengert".into()),
+            note: Some("Verlängert".into()),
         }).unwrap();
 
         assert_eq!(updated.end_date, "2026-02-10");
-        assert_eq!(updated.note, Some("Verlaengert".to_string()));
+        assert_eq!(updated.note, Some("Verlängert".to_string()));
     }
 
     #[test]

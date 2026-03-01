@@ -47,26 +47,26 @@ export function RoomList() {
     setDeleteConfirmId(null);
   };
 
-  if (loading) return <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Raeume...</div>;
+  if (loading) return <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Räume...</div>;
   if (error) return <div className="text-red-600">Fehler: {error}</div>;
 
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-gray-800">Raeume</h2>
+        <h2 className="text-lg font-semibold text-gray-800">Räume</h2>
         <div className="flex items-center gap-3">
-          <span className="text-sm text-gray-500">{rooms.length} Eintraege</span>
+          <span className="text-sm text-gray-500">{rooms.length} Einträge</span>
           <button
             onClick={() => setShowForm(true)}
             className="px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
-            Hinzufuegen
+            Hinzufügen
           </button>
         </div>
       </div>
 
       {rooms.length === 0 ? (
-        <p className="text-gray-500">Noch keine Raeume angelegt.</p>
+        <p className="text-gray-500">Noch keine Räume angelegt.</p>
       ) : (
         <div className="bg-white rounded-lg shadow overflow-hidden">
           <table className="min-w-full divide-y divide-gray-200">
@@ -74,7 +74,7 @@ export function RoomList() {
               <tr>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Name</th>
                 <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Typ</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kapazitaet</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Kapazität</th>
                 <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase">Aktionen</th>
               </tr>
             </thead>
@@ -97,7 +97,7 @@ export function RoomList() {
                       onClick={() => setDeleteConfirmId(room.id)}
                       className="text-red-600 hover:text-red-800"
                     >
-                      Loeschen
+                      Löschen
                     </button>
                   </td>
                 </tr>
@@ -132,8 +132,8 @@ export function RoomList() {
 
       <ConfirmDialog
         open={deleteConfirmId !== null}
-        title="Raum loeschen"
-        message="Soll dieser Raum wirklich geloescht werden?"
+        title="Raum löschen"
+        message="Soll dieser Raum wirklich gelöscht werden?"
         onConfirm={handleDelete}
         onCancel={() => setDeleteConfirmId(null)}
       />

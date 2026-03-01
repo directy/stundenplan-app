@@ -58,8 +58,8 @@ export function ViewSelector({
       >
         <option value="">
           {viewMode === "class"
-            ? "Klasse waehlen..."
-            : "Lehrkraft waehlen..."}
+            ? "Klasse wählen..."
+            : "Lehrkraft wählen..."}
         </option>
         {viewMode === "class"
           ? classes.map((c) => (

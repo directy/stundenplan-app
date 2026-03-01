@@ -31,14 +31,14 @@ export function HolidayView() {
 
       if (!data.schoolYear || !data.state || !Array.isArray(data.holidays)) {
         throw new Error(
-          "Ungueltiges JSON-Format: schoolYear, state und holidays erforderlich",
+          "Ungültiges JSON-Format: schoolYear, state und holidays erforderlich",
         );
       }
 
       for (const h of data.holidays) {
         if (!h.name || !h.startDate || !h.endDate) {
           throw new Error(
-            `Unvollstaendiger Ferieneintrag: name, startDate und endDate erforderlich`,
+            `Unvollständiger Ferieneintrag: name, startDate und endDate erforderlich`,
           );
         }
       }
@@ -92,7 +92,7 @@ export function HolidayView() {
               disabled={loading}
               className="px-3 py-1.5 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 transition-colors"
             >
-              Alle loeschen
+              Alle löschen
             </button>
           )}
         </div>

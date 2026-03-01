@@ -74,7 +74,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
   deleteSchedule: async (id: number) => {
     await invoke("delete_schedule", { id });
     set({ schedules: get().schedules.filter((s) => s.id !== id) });
-    useToastStore.getState().addToast("success", "Plan geloescht");
+    useToastStore.getState().addToast("success", "Plan gelöscht");
   },
 
   fetchScheduleEntries: async (scheduleId: number) => {
@@ -141,7 +141,7 @@ export const useScheduleStore = create<ScheduleState>((set, get) => ({
       set({ generationResult: result, generating: false });
       // Eintraege nach Generierung neu laden
       await get().fetchScheduleEntries(scheduleId);
-      useToastStore.getState().addToast("success", `Generierung abgeschlossen – ${result.entriesCreated} Eintraege erstellt`);
+      useToastStore.getState().addToast("success", `Generierung abgeschlossen – ${result.entriesCreated} Einträge erstellt`);
       return result;
     } catch (error) {
       set({ error: String(error), generating: false });

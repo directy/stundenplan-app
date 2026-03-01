@@ -4,7 +4,7 @@ use rusqlite::{params, Connection};
 
 use crate::db;
 use crate::error::AppError;
-use crate::models::{Teacher, TeacherPreference};
+use crate::models::{Teacher, TeacherPreference, TeacherWish};
 use super::constraints;
 use super::scorer;
 use super::greedy;
@@ -14,10 +14,10 @@ use super::types::*;
 // Move-Typen
 // ============================================================================
 
-/// Ein moeglicher Zug im Tabu-Search
+/// Ein möglicher Zug im Tabu-Search
 #[derive(Debug, Clone, Hash, Eq, PartialEq)]
 pub enum TabuMove {
-    /// Zwei Eintraege derselben Klasse tauschen Timeslots + Rooms
+    /// Zwei Einträge derselben Klasse tauschen Timeslots + Rooms
     Swap { entry_a_idx: usize, entry_b_idx: usize },
     /// Ein Eintrag bekommt einen anderen qualifizierten Lehrer
     TeacherReassign { entry_idx: usize, old_teacher_id: i64, new_teacher_id: i64 },
@@ -50,7 +50,7 @@ impl TabuList {
     }
 }
 
-/// Erzeugt den Reverse-Move fuer die Tabu-Liste.
+/// Erzeugt den Reverse-Move für die Tabu-Liste.
 fn reverse_move(mv: &TabuMove) -> TabuMove {
     match mv {
         TabuMove::Swap { entry_a_idx, entry_b_idx } => TabuMove::Swap {
@@ -72,13 +72,20 @@ fn reverse_move(mv: &TabuMove) -> TabuMove {
 // ============================================================================
 
 /// Berechnet den Score eines einzelnen Entries im aktuellen State.
+#[allow(clippy::too_many_arguments)]
 fn score_entry(
     entry: &EntrySnapshot,
     state: &ScheduleState,
-    weights: &ConstraintWeights,
+    constraint_rules: &[crate::models::ConstraintRule],
+    weights_cache: &mut HashMap<(i64, i64, i64), ConstraintWeights>,
     class_teacher_map: &HashMap<i64, Option<i64>>,
     teacher_prefs: &HashMap<i64, Vec<TeacherPreference>>,
     subject_weekly_hours: &HashMap<i64, i32>,
+    class_subject_overrides: &HashMap<(i64, i64), i32>,
+    active_wishes: &[TeacherWish],
+    ranking_multiplier_map: &HashMap<i64, f64>,
+    subject_name_map: &HashMap<i64, String>,
+    forbidden_pairs: &[(String, String)],
 ) -> f64 {
     let candidate = AssignmentCandidate {
         time_slot_id: entry.time_slot_id,
@@ -88,10 +95,27 @@ fn score_entry(
         room_id: entry.room_id,
     };
 
+    let ctx_key = (entry.class_id, entry.teacher_id, entry.room_id);
+    let weights = weights_cache
+        .entry(ctx_key)
+        .or_insert_with(|| {
+            let ctx = ScoringContext {
+                class_id: entry.class_id,
+                teacher_id: entry.teacher_id,
+                room_id: entry.room_id,
+            };
+            greedy::load_constraint_weights_for_context(constraint_rules, &ctx)
+        });
+
     let class_teacher_id = class_teacher_map.get(&entry.class_id).copied().flatten();
-    let weekly_hours = subject_weekly_hours.get(&entry.subject_id).copied().unwrap_or(2);
+    // Use class-specific override if available, otherwise default
+    let weekly_hours = class_subject_overrides
+        .get(&(entry.class_id, entry.subject_id))
+        .copied()
+        .unwrap_or_else(|| subject_weekly_hours.get(&entry.subject_id).copied().unwrap_or(2));
     let empty_prefs = Vec::new();
     let prefs = teacher_prefs.get(&entry.teacher_id).unwrap_or(&empty_prefs);
+    let r_mult = ranking_multiplier_map.get(&entry.teacher_id).copied().unwrap_or(1.0);
 
     let scored = scorer::score_candidate(
         state,
@@ -102,23 +126,34 @@ fn score_entry(
         weekly_hours,
         class_teacher_id,
         prefs,
+        active_wishes,
+        r_mult,
         weights,
+        subject_name_map,
+        forbidden_pairs,
     );
     scored.total_score
 }
 
 /// Berechnet den Durchschnittsscore aller Entries.
+#[allow(clippy::too_many_arguments)]
 fn total_average_score(
     entries: &[EntrySnapshot],
     state: &ScheduleState,
-    weights: &ConstraintWeights,
+    constraint_rules: &[crate::models::ConstraintRule],
+    weights_cache: &mut HashMap<(i64, i64, i64), ConstraintWeights>,
     class_teacher_map: &HashMap<i64, Option<i64>>,
     teacher_prefs: &HashMap<i64, Vec<TeacherPreference>>,
     subject_weekly_hours: &HashMap<i64, i32>,
+    class_subject_overrides: &HashMap<(i64, i64), i32>,
+    active_wishes: &[TeacherWish],
+    ranking_multiplier_map: &HashMap<i64, f64>,
+    subject_name_map: &HashMap<i64, String>,
+    forbidden_pairs: &[(String, String)],
 ) -> f64 {
     if entries.is_empty() { return 0.0; }
     let sum: f64 = entries.iter()
-        .map(|e| score_entry(e, state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours))
+        .map(|e| score_entry(e, state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs))
         .sum();
     sum / entries.len() as f64
 }
@@ -166,13 +201,20 @@ fn generate_neighborhood(
     entries: &mut [EntrySnapshot],
     state: &mut ScheduleState,
     sample_size: usize,
-    weights: &ConstraintWeights,
+    constraint_rules: &[crate::models::ConstraintRule],
+    weights_cache: &mut HashMap<(i64, i64, i64), ConstraintWeights>,
     class_teacher_map: &HashMap<i64, Option<i64>>,
     teacher_prefs: &HashMap<i64, Vec<TeacherPreference>>,
     subject_weekly_hours: &HashMap<i64, i32>,
+    class_subject_overrides: &HashMap<(i64, i64), i32>,
     teacher_map: &HashMap<i64, Teacher>,
     qualified_teachers: &HashMap<i64, Vec<i64>>,
     room_types: &HashMap<i64, String>,
+    active_wishes: &[TeacherWish],
+    ranking_multiplier_map: &HashMap<i64, f64>,
+    subject_name_map: &HashMap<i64, String>,
+    forbidden_pairs: &[(String, String)],
+    hard_class_restrictions: &HashMap<i64, std::collections::HashSet<i64>>,
     rng: &mut impl Rng,
 ) -> Vec<(TabuMove, f64)> {
     let mut moves = Vec::with_capacity(sample_size);
@@ -202,15 +244,15 @@ fn generate_neighborhood(
         let b = group[bi];
         if entries[a].time_slot_id == entries[b].time_slot_id { continue; }
 
-        // Pruefen: Raumtyp-Kompatibilitaet nach Tausch
+        // Prüfen: Raumtyp-Kompatibilität nach Tausch
         let room_a_type = room_types.get(&entries[a].room_id).map(|s| s.as_str()).unwrap_or("standard");
         let room_b_type = room_types.get(&entries[b].room_id).map(|s| s.as_str()).unwrap_or("standard");
         if !constraints::check_room_type_match(room_b_type, &entries[a].required_room_type) { continue; }
         if !constraints::check_room_type_match(room_a_type, &entries[b].required_room_type) { continue; }
 
         // Score vor dem Move
-        let score_before = score_entry(&entries[a], state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours)
-            + score_entry(&entries[b], state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours);
+        let score_before = score_entry(&entries[a], state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs)
+            + score_entry(&entries[b], state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs);
 
         // Move anwenden
         apply_swap(entries, state, a, b);
@@ -241,13 +283,13 @@ fn generate_neighborhood(
         };
 
         if hard_ok {
-            let score_after = score_entry(&entries[a], state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours)
-                + score_entry(&entries[b], state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours);
+            let score_after = score_entry(&entries[a], state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs)
+                + score_entry(&entries[b], state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs);
             let delta = (score_after - score_before) / entries.len() as f64;
             moves.push((TabuMove::Swap { entry_a_idx: a, entry_b_idx: b }, delta));
         }
 
-        // Move rueckgaengig machen
+        // Move rückgängig machen
         apply_swap(entries, state, a, b);
     }
 
@@ -265,13 +307,20 @@ fn generate_neighborhood(
         let new_teacher_id = qualified[rng.random_range(0..qualified.len())];
         if new_teacher_id == entry.teacher_id { continue; }
 
+        // Hard Constraint: Lehrer-Klassen-Einschränkung
+        if let Some(allowed_classes) = hard_class_restrictions.get(&new_teacher_id) {
+            if !allowed_classes.contains(&entry.class_id) {
+                continue;
+            }
+        }
+
         let teacher = match teacher_map.get(&new_teacher_id) {
             Some(t) => t,
             None => continue,
         };
 
         // Score vor dem Move
-        let score_before = score_entry(&entries[idx], state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours);
+        let score_before = score_entry(&entries[idx], state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs);
 
         // Move anwenden
         let old_teacher_id = entries[idx].teacher_id;
@@ -286,12 +335,12 @@ fn generate_neighborhood(
             && constraints::check_max_hours_per_day(state, &cand, teacher);
 
         if hard_ok {
-            let score_after = score_entry(&entries[idx], state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours);
+            let score_after = score_entry(&entries[idx], state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs);
             let delta = (score_after - score_before) / entries.len() as f64;
             moves.push((TabuMove::TeacherReassign { entry_idx: idx, old_teacher_id, new_teacher_id }, delta));
         }
 
-        // Move rueckgaengig machen
+        // Move rückgängig machen
         apply_teacher_reassign(entries, state, idx, old_teacher_id);
     }
 
@@ -319,7 +368,7 @@ pub fn optimize(
     let _time_slots = db::time_slots::get_time_slots(conn)?;
     let constraint_rules = db::constraints::get_constraint_rules(conn)?;
 
-    // Praeferenzen pro Lehrer laden (wie in greedy.rs)
+    // Präferenzen pro Lehrer laden (wie in greedy.rs)
     let mut all_prefs: HashMap<i64, Vec<TeacherPreference>> = HashMap::new();
     for teacher in &all_teachers {
         let prefs = db::preferences::get_preferences_for_teacher(conn, teacher.id)?;
@@ -328,17 +377,37 @@ pub fn optimize(
         }
     }
 
-    let weights = greedy::load_constraint_weights(&constraint_rules);
+    // Sonderwünsche und Rankings laden
+    let active_wishes: Vec<TeacherWish> = db::wishes::get_all_active_wishes(conn)?;
+    let rankings = db::rewards::get_teacher_rankings(conn)?;
+    let ranking_multiplier_map: HashMap<i64, f64> = rankings
+        .iter()
+        .map(|r| (r.teacher_id, r.ranking_multiplier))
+        .collect();
+
+    let mut weights_cache: HashMap<(i64, i64, i64), ConstraintWeights> = HashMap::new();
+    let forbidden_pairs = greedy::load_forbidden_subject_pairs(&constraint_rules);
 
     // Lookup-Maps
     let teacher_map: HashMap<i64, Teacher> = all_teachers.iter()
         .map(|t| (t.id, t.clone())).collect();
     let class_teacher_map: HashMap<i64, Option<i64>> = classes.iter()
         .map(|c| (c.id, c.class_teacher_id)).collect();
-    let subject_weekly_hours: HashMap<i64, i32> = subjects.iter()
+    // Stundentafel-Overrides laden und effektive Wochenstunden berechnen
+    let class_subject_overrides = db::class_subjects::get_all_class_subject_hours(conn)?;
+    let default_weekly_hours: HashMap<i64, i32> = subjects.iter()
         .map(|s| (s.id, s.weekly_hours_default)).collect();
+    // subject_weekly_hours: für Scoring wird pro Entry die effektive Stundenzahl benötigt
+    // Da Tabu Search keyed by subject_id, nutzen wir weiterhin den Default als Basis
+    // (Overrides werden per-entry bei Bedarf aufgelöst)
+    let subject_weekly_hours: HashMap<i64, i32> = default_weekly_hours;
     let room_types: HashMap<i64, String> = rooms.iter()
         .map(|r| (r.id, r.room_type.clone())).collect();
+    let subject_name_map: HashMap<i64, String> = subjects.iter()
+        .map(|s| (s.id, s.short_name.clone())).collect();
+
+    // Lehrer-Klassen-Einschränkungen laden
+    let (hard_class_restrictions, _soft_class_preferences) = db::teacher_classes::get_restriction_maps(conn)?;
 
     // Qualifizierte Lehrer pro Fach (wie in greedy.rs)
     let mut qualified_teachers: HashMap<i64, Vec<i64>> = HashMap::new();
@@ -350,7 +419,7 @@ pub fn optimize(
     // 3. schedule_entries laden -> EntrySnapshots
     let mut entries = load_entry_snapshots(conn, schedule_id)?;
     if entries.is_empty() {
-        return Err(AppError::Validation("Stundenplan hat keine Eintraege. Bitte zuerst generieren.".to_string()));
+        return Err(AppError::Validation("Stundenplan hat keine Einträge. Bitte zuerst generieren.".to_string()));
     }
 
     // 4. ScheduleState aufbauen
@@ -358,7 +427,8 @@ pub fn optimize(
 
     // 5. Initialen Score berechnen
     let initial_score = total_average_score(
-        &entries, &state, &weights, &class_teacher_map, &all_prefs, &subject_weekly_hours,
+        &entries, &state, &constraint_rules, &mut weights_cache, &class_teacher_map, &all_prefs, &subject_weekly_hours,
+        &class_subject_overrides, &active_wishes, &ranking_multiplier_map, &subject_name_map, &forbidden_pairs,
     );
 
     // 6. Tabu-Search-Hauptschleife
@@ -372,7 +442,7 @@ pub fn optimize(
     let mut modified_entry_ids: std::collections::HashSet<i64> = std::collections::HashSet::new();
 
     for iteration in 0..config.max_iterations {
-        // Periodisch Tabu-Liste aufraeumen
+        // Periodisch Tabu-Liste aufräumen
         if iteration % 50 == 0 {
             tabu_list.cleanup(iteration);
         }
@@ -380,8 +450,10 @@ pub fn optimize(
         // Nachbarschaft generieren
         let neighborhood = generate_neighborhood(
             &mut entries, &mut state, config.neighborhood_sample_size,
-            &weights, &class_teacher_map, &all_prefs, &subject_weekly_hours,
-            &teacher_map, &qualified_teachers, &room_types, &mut rng,
+            &constraint_rules, &mut weights_cache, &class_teacher_map, &all_prefs, &subject_weekly_hours,
+            &class_subject_overrides, &teacher_map, &qualified_teachers, &room_types,
+            &active_wishes, &ranking_multiplier_map,
+            &subject_name_map, &forbidden_pairs, &hard_class_restrictions, &mut rng,
         );
 
         // Besten Move finden
@@ -435,11 +507,11 @@ pub fn optimize(
         }
     }
 
-    // 7. Beste Loesung wiederherstellen
+    // 7. Beste Lösung wiederherstellen
     entries = best_entries;
 
-    // 8. Aenderungen in DB schreiben
-    let entries_modified = persist_optimized_entries(conn, &entries, &modified_entry_ids, &state, &weights, &class_teacher_map, &all_prefs, &subject_weekly_hours)?;
+    // 8. Änderungen in DB schreiben
+    let entries_modified = persist_optimized_entries(conn, &entries, &modified_entry_ids, &state, &constraint_rules, &mut weights_cache, &class_teacher_map, &all_prefs, &subject_weekly_hours, &class_subject_overrides, &active_wishes, &ranking_multiplier_map, &subject_name_map, &forbidden_pairs)?;
 
     let improvement = if initial_score > 0.0 {
         ((best_score - initial_score) / initial_score) * 100.0
@@ -461,7 +533,7 @@ pub fn optimize(
 // DB-Helfer
 // ============================================================================
 
-/// Laedt alle schedule_entries als EntrySnapshots mit JOINs.
+/// Lädt alle schedule_entries als EntrySnapshots mit JOINs.
 fn load_entry_snapshots(conn: &Connection, schedule_id: i64) -> Result<Vec<EntrySnapshot>, AppError> {
     let mut stmt = conn.prepare(
         "SELECT se.id, se.schedule_id, se.time_slot_id, ts.day_of_week, ts.period,
@@ -492,27 +564,33 @@ fn load_entry_snapshots(conn: &Connection, schedule_id: i64) -> Result<Vec<Entry
     Ok(snapshots)
 }
 
-/// Schreibt optimierte Entries zurueck in die DB mit neuem decision_log.
+/// Schreibt optimierte Entries zurück in die DB mit neuem decision_log.
 #[allow(clippy::too_many_arguments)]
 fn persist_optimized_entries(
     conn: &Connection,
     entries: &[EntrySnapshot],
     modified_ids: &std::collections::HashSet<i64>,
     state: &ScheduleState,
-    weights: &ConstraintWeights,
+    constraint_rules: &[crate::models::ConstraintRule],
+    weights_cache: &mut HashMap<(i64, i64, i64), ConstraintWeights>,
     class_teacher_map: &HashMap<i64, Option<i64>>,
     teacher_prefs: &HashMap<i64, Vec<TeacherPreference>>,
     subject_weekly_hours: &HashMap<i64, i32>,
+    class_subject_overrides: &HashMap<(i64, i64), i32>,
+    active_wishes: &[TeacherWish],
+    ranking_multiplier_map: &HashMap<i64, f64>,
+    subject_name_map: &HashMap<i64, String>,
+    forbidden_pairs: &[(String, String)],
 ) -> Result<usize, AppError> {
     let mut count = 0;
     for entry in entries {
         if !modified_ids.contains(&entry.db_id) { continue; }
 
-        let new_score = score_entry(entry, state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours);
+        let new_score = score_entry(entry, state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs);
 
         let decision_log = serde_json::json!({
             "algorithm": "tabu_search",
-            "soft_scores": build_soft_scores(entry, state, weights, class_teacher_map, teacher_prefs, subject_weekly_hours),
+            "soft_scores": build_soft_scores(entry, state, constraint_rules, weights_cache, class_teacher_map, teacher_prefs, subject_weekly_hours, class_subject_overrides, active_wishes, ranking_multiplier_map, subject_name_map, forbidden_pairs),
             "total_score": (new_score * 1000.0).round() / 1000.0,
             "reason": format!("Tabu-Search-Optimierung: Score {:.3}", new_score)
         }).to_string();
@@ -526,14 +604,21 @@ fn persist_optimized_entries(
     Ok(count)
 }
 
-/// Berechnet die einzelnen Soft-Scores fuer den decision_log.
+/// Berechnet die einzelnen Soft-Scores für den decision_log.
+#[allow(clippy::too_many_arguments)]
 fn build_soft_scores(
     entry: &EntrySnapshot,
     state: &ScheduleState,
-    weights: &ConstraintWeights,
+    constraint_rules: &[crate::models::ConstraintRule],
+    weights_cache: &mut HashMap<(i64, i64, i64), ConstraintWeights>,
     class_teacher_map: &HashMap<i64, Option<i64>>,
     teacher_prefs: &HashMap<i64, Vec<TeacherPreference>>,
     subject_weekly_hours: &HashMap<i64, i32>,
+    class_subject_overrides: &HashMap<(i64, i64), i32>,
+    active_wishes: &[TeacherWish],
+    ranking_multiplier_map: &HashMap<i64, f64>,
+    subject_name_map: &HashMap<i64, String>,
+    forbidden_pairs: &[(String, String)],
 ) -> serde_json::Value {
     let candidate = AssignmentCandidate {
         time_slot_id: entry.time_slot_id,
@@ -543,15 +628,32 @@ fn build_soft_scores(
         room_id: entry.room_id,
     };
 
+    let ctx_key = (entry.class_id, entry.teacher_id, entry.room_id);
+    let weights = weights_cache
+        .entry(ctx_key)
+        .or_insert_with(|| {
+            let ctx = ScoringContext {
+                class_id: entry.class_id,
+                teacher_id: entry.teacher_id,
+                room_id: entry.room_id,
+            };
+            greedy::load_constraint_weights_for_context(constraint_rules, &ctx)
+        });
+
     let class_teacher_id = class_teacher_map.get(&entry.class_id).copied().flatten();
-    let weekly_hours = subject_weekly_hours.get(&entry.subject_id).copied().unwrap_or(2);
+    let weekly_hours = class_subject_overrides
+        .get(&(entry.class_id, entry.subject_id))
+        .copied()
+        .unwrap_or_else(|| subject_weekly_hours.get(&entry.subject_id).copied().unwrap_or(2));
     let empty_prefs = Vec::new();
     let prefs = teacher_prefs.get(&entry.teacher_id).unwrap_or(&empty_prefs);
+    let r_mult = ranking_multiplier_map.get(&entry.teacher_id).copied().unwrap_or(1.0);
 
     let scored = scorer::score_candidate(
         state, &candidate, entry.class_id, entry.subject_id,
         &entry.subject_short_name, weekly_hours, class_teacher_id,
-        prefs, weights,
+        prefs, active_wishes, r_mult, weights,
+        subject_name_map, forbidden_pairs,
     );
 
     scored.soft_scores.iter()
@@ -618,7 +720,7 @@ mod tests {
         let mut state = ScheduleState::new();
         state.add_entry(&entry);
 
-        // State sollte gefuellt sein
+        // State sollte gefüllt sein
         assert!(state.teacher_slots.get(&5).unwrap().contains(&30));
         assert!(state.room_slots.get(&5).unwrap().contains(&40));
         assert!(state.class_slots.get(&5).unwrap().contains(&10));
@@ -659,7 +761,7 @@ mod tests {
         assert_eq!(entries[0].time_slot_id, 6);
         assert_eq!(entries[1].time_slot_id, 1);
 
-        // Swap zurueck
+        // Swap zurück
         apply_swap(&mut entries, &mut state, 0, 1);
         assert_eq!(entries[0].time_slot_id, 1);
         assert_eq!(entries[1].time_slot_id, 6);
@@ -682,6 +784,6 @@ mod tests {
         let result = optimize(&db.conn, schedule_id, TabuSearchConfig::default());
         assert!(result.is_err());
         let err_msg = result.unwrap_err().to_string();
-        assert!(err_msg.contains("keine Eintraege"), "Error was: {}", err_msg);
+        assert!(err_msg.contains("keine Einträge"), "Error was: {}", err_msg);
     }
 }

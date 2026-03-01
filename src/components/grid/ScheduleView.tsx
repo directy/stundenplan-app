@@ -135,7 +135,7 @@ export function ScheduleView() {
             </button>
           </div>
           <div className="flex gap-3 items-center">
-            <span className="text-xs text-gray-500">Gueltig von:</span>
+            <span className="text-xs text-gray-500">Gültig von:</span>
             <input
               type="date"
               value={newValidFrom}
@@ -150,7 +150,7 @@ export function ScheduleView() {
               className="px-2 py-1 border border-gray-300 rounded text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <span className="text-xs text-gray-400">
-              (optional – fuer Abwesenheits-Filter im Solver)
+              (optional – für Abwesenheits-Filter im Solver)
             </span>
           </div>
         </div>
@@ -195,8 +195,8 @@ export function ScheduleView() {
         <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
           <p className="text-lg">
             {schedules.length === 0
-              ? "Noch keine Stundenplaene vorhanden."
-              : "Bitte einen Stundenplan auswaehlen."}
+              ? "Noch keine Stundenpläne vorhanden."
+              : "Bitte einen Stundenplan auswählen."}
           </p>
           <p className="text-sm mt-2">
             Erstellen Sie einen neuen Plan, um mit der Generierung zu beginnen.
@@ -217,7 +217,7 @@ export function ScheduleView() {
                   </h3>
                   <p className="text-sm text-gray-500 mt-1">
                     Greedy-Algorithmus: Weist Stunden automatisch zu und
-                    optimiert Soft Constraints.
+                    optimiert Planungsregeln.
                   </p>
                 </div>
                 <div className="flex gap-2">
@@ -271,7 +271,7 @@ export function ScheduleView() {
               </h3>
               <div className="grid grid-cols-3 gap-4 text-sm">
                 <div>
-                  <span className="text-green-600">Eintraege erstellt:</span>
+                  <span className="text-green-600">Einträge erstellt:</span>
                   <span className="ml-1 font-medium text-green-800">
                     {generationResult.entriesCreated}
                   </span>
@@ -353,7 +353,7 @@ export function ScheduleView() {
                   </span>
                 </div>
                 <div>
-                  <span className="text-purple-600">Eintraege geaendert:</span>
+                  <span className="text-purple-600">Einträge geändert:</span>
                   <span className="ml-1 font-medium text-purple-800">
                     {optimizationResult.entriesModified}
                   </span>
@@ -364,10 +364,10 @@ export function ScheduleView() {
 
           {/* Stundenplan-Grid */}
           {loading ? (
-            <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Eintraege...</div>
+            <div className="flex items-center gap-2 text-gray-500"><Spinner size="sm" /> Lade Einträge...</div>
           ) : currentEntries.length === 0 ? (
             <div className="bg-white rounded-lg shadow p-8 text-center text-gray-500">
-              <p>Noch keine Eintraege vorhanden.</p>
+              <p>Noch keine Einträge vorhanden.</p>
               <p className="text-sm mt-2">
                 Klicken Sie auf "Generieren", um den Stundenplan automatisch zu
                 erstellen.

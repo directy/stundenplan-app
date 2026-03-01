@@ -61,7 +61,7 @@ pub fn delete_time_slot(conn: &Connection, id: i64) -> Result<(), AppError> {
 
 /// Erstellt die 45 Standard-Zeitslots (5 Tage x 9 Stunden) mit deutschen Schulzeiten.
 pub fn seed_default_time_slots(conn: &Connection) -> Result<(), AppError> {
-    // Pruefen ob bereits Zeitslots vorhanden
+    // Prüfen ob bereits Zeitslots vorhanden
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM time_slots", [], |row| row.get(0),
     )?;

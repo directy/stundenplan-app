@@ -6,15 +6,17 @@ use crate::models::{
     ReportEntry, TeacherWorkloadItem,
 };
 
-/// Constraint-Schluessel zu deutschem Label
+/// Constraint-Schlüssel zu deutschem Label
 const CONSTRAINT_LABELS: &[(&str, &str)] = &[
-    ("no_sports_after_math", "Kein Sport nach Mathe"),
-    ("even_weekly_distribution", "Gleichmaessige Verteilung"),
+    ("forbidden_subject_sequence", "Verbotene Fachfolge"),
+    ("no_sports_after_math", "Verbotene Fachfolge"), // Legacy
+    ("even_weekly_distribution", "Gleichmäßige Verteilung"),
     ("avoid_edge_periods", "Randstunden vermeiden"),
     ("minimize_gaps", "Hohlstunden minimieren"),
     ("class_teacher_first_period", "Klassenlehrer 1. Stunde"),
-    ("main_subjects_morning", "Hauptfaecher vormittags"),
-    ("teacher_preferences", "Lehrer-Praeferenzen"),
+    ("main_subjects_morning", "Hauptfächer vormittags"),
+    ("teacher_preferences", "Lehrer-Präferenzen"),
+    ("teacher_wishes", "Sonderwünsche"),
 ];
 
 /// Parsed decision_log JSON
@@ -42,7 +44,7 @@ fn parse_decision_log(json_str: &str) -> ParsedLog {
     ParsedLog { total_score, soft_scores, reason }
 }
 
-/// Erzeugt einen aggregierten Bericht fuer einen Stundenplan.
+/// Erzeugt einen aggregierten Bericht für einen Stundenplan.
 pub fn generate_schedule_report(
     conn: &Connection,
     schedule_id: i64,
@@ -54,7 +56,7 @@ pub fn generate_schedule_report(
         |row| row.get(0),
     ).map_err(|_| AppError::NotFound(format!("Stundenplan mit ID {} nicht gefunden", schedule_id)))?;
 
-    // 2. Alle Eintraege mit JOINs laden
+    // 2. Alle Einträge mit JOINs laden
     let mut stmt = conn.prepare(
         "SELECT se.id, se.decision_log, ts.day_of_week, ts.period,
                 c.name AS class_name, s.name AS subject_name,

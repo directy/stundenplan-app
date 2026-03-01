@@ -1,6 +1,6 @@
 // Vertretungsmodul (Phase 5: Scoring + Priorisierung)
 // Bewertet Vertretungskandidaten nach gewichteter Scoring-Formel
-// und liefert transparente Entscheidungsbegruendungen.
+// und liefert transparente Entscheidungsbegründungen.
 
 use std::collections::{HashMap, HashSet};
 use chrono::{NaiveDate, Datelike};
@@ -10,17 +10,17 @@ use crate::db;
 use crate::error::AppError;
 use crate::models::{SubstitutionCandidate, ScoreBreakdown, AffectedEntry};
 
-// Default-Gewichtungen fuer die Vertretungs-Scoring-Formel
+// Default-Gewichtungen für die Vertretungs-Scoring-Formel
 const W_ENGAGEMENT: f64 = 0.20;
 const W_SUBSTITUTION_LOAD: f64 = 0.25;
 const W_PEDAGOGICAL: f64 = 0.15;
 const W_WEEKLY_LOAD: f64 = 0.20;
 const W_SUBJECT_QUAL: f64 = 0.20;
 
-// Zeitraum fuer die Berechnung der Vertretungslast (letzte N Tage)
+// Zeitraum für die Berechnung der Vertretungslast (letzte N Tage)
 const SUBSTITUTION_LOOKBACK_DAYS: i32 = 30;
 
-/// Ermittelt und bewertet Vertretungskandidaten fuer einen bestimmten Stundeneintrag an einem Datum.
+/// Ermittelt und bewertet Vertretungskandidaten für einen bestimmten Stundeneintrag an einem Datum.
 ///
 /// Filtert abwesende, belegte und den Original-Lehrer aus,
 /// bewertet verbleibende Kandidaten nach der Scoring-Formel und
@@ -33,10 +33,10 @@ pub fn get_substitution_candidates(
     // 1. Lade den betroffenen schedule_entry
     let entry = db::schedule_entries::get_schedule_entry(conn, entry_id)?;
 
-    // 2. Lade alle Lehrkraefte
+    // 2. Lade alle Lehrkräfte
     let all_teachers = db::teachers::get_teachers(conn)?;
 
-    // 3. Lade IDs der abwesenden Lehrkraefte am Datum
+    // 3. Lade IDs der abwesenden Lehrkräfte am Datum
     let absent_ids: HashSet<i64> = db::absences::get_absent_teacher_ids_on_date(conn, date)?
         .into_iter()
         .collect();
@@ -46,11 +46,11 @@ pub fn get_substitution_candidates(
         .into_iter()
         .collect();
 
-    // 5. Lade qualifizierte Lehrer fuer das Fach
+    // 5. Lade qualifizierte Lehrer für das Fach
     let qualified_teachers = db::teacher_subjects::get_teachers_for_subject(conn, entry.subject_id)?;
     let qualified_ids: HashSet<i64> = qualified_teachers.iter().map(|t| t.id).collect();
 
-    // 6. Berechne Vertretungslast und Wochenstunden fuer Normalisierung
+    // 6. Berechne Vertretungslast und Wochenstunden für Normalisierung
     let substitution_counts = db::substitutions::count_recent_substitutions_by_teacher(
         conn, SUBSTITUTION_LOOKBACK_DAYS,
     )?;
@@ -59,7 +59,13 @@ pub fn get_substitution_candidates(
     let weekly_hours = count_weekly_hours(conn, entry.schedule_id)?;
     let max_weekly = weekly_hours.values().copied().max().unwrap_or(1) as f64;
 
-    // 7. Filtere und score Kandidaten
+    // 7. Einstellungen laden (Engagement/Pädagogik ein-/ausschaltbar)
+    let use_engagement = db::settings::get_setting_bool(conn, "use_engagement_score", true)?;
+    let use_pedagogical = db::settings::get_setting_bool(conn, "use_pedagogical_score", true)?;
+    let w_engagement = if use_engagement { W_ENGAGEMENT } else { 0.0 };
+    let w_pedagogical = if use_pedagogical { W_PEDAGOGICAL } else { 0.0 };
+
+    // 8. Filtere und score Kandidaten
     let mut candidates: Vec<SubstitutionCandidate> = Vec::new();
 
     for teacher in &all_teachers {
@@ -85,9 +91,9 @@ pub fn get_substitution_candidates(
             0.0
         };
 
-        let engagement_component = teacher.engagement_score * W_ENGAGEMENT;
+        let engagement_component = teacher.engagement_score * w_engagement;
         let sub_load_component = (1.0 - sub_load_normalized) * W_SUBSTITUTION_LOAD;
-        let pedagogical_component = teacher.pedagogical_score * W_PEDAGOGICAL;
+        let pedagogical_component = teacher.pedagogical_score * w_pedagogical;
         let weekly_load_component = (1.0 - weekly_normalized) * W_WEEKLY_LOAD;
         let qual_component = subject_qual * W_SUBJECT_QUAL;
 
@@ -125,7 +131,7 @@ pub fn get_substitution_candidates(
         });
     }
 
-    // Sortierung: hoechster Score zuerst
+    // Sortierung: höchster Score zuerst
     candidates.sort_by(|a, b| {
         b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal)
     });
@@ -133,7 +139,7 @@ pub fn get_substitution_candidates(
     Ok(candidates)
 }
 
-/// Ermittelt alle betroffenen Stundenplaneintraege fuer ein Datum.
+/// Ermittelt alle betroffenen Stundenplaneinträge für ein Datum.
 /// Ein Eintrag ist betroffen, wenn die zugewiesene Lehrkraft an diesem Tag abwesend ist.
 pub fn get_affected_entries(
     conn: &Connection,
@@ -142,7 +148,7 @@ pub fn get_affected_entries(
 ) -> Result<Vec<AffectedEntry>, AppError> {
     let day_of_week = date_to_day_of_week(date)?;
 
-    // Lade abwesende Lehrer-IDs fuer dieses Datum
+    // Lade abwesende Lehrer-IDs für dieses Datum
     let absent_ids: HashSet<i64> = db::absences::get_absent_teacher_ids_on_date(conn, date)?
         .into_iter()
         .collect();
@@ -151,8 +157,8 @@ pub fn get_affected_entries(
         return Ok(Vec::new());
     }
 
-    // Query: Alle Eintraege des Plans fuer diesen Wochentag, deren Lehrer abwesend ist.
-    // JOIN mit time_slots, teachers, subjects, classes, rooms fuer Namen.
+    // Query: Alle Einträge des Plans für diesen Wochentag, deren Lehrer abwesend ist.
+    // JOIN mit time_slots, teachers, subjects, classes, rooms für Namen.
     let absent_list: Vec<String> = absent_ids.iter().map(|id| id.to_string()).collect();
     let absent_csv = absent_list.join(",");
 
@@ -192,7 +198,7 @@ pub fn get_affected_entries(
         ))
     })?;
 
-    // Lade bestehende Vertretungen fuer dieses Datum
+    // Lade bestehende Vertretungen für dieses Datum
     let existing_subs = db::substitutions::get_substitutions_by_date(conn, date)?;
     let sub_map: HashMap<i64, String> = existing_subs
         .iter()
@@ -237,7 +243,7 @@ pub fn get_affected_entries(
 
 // --- Interne Hilfsfunktionen ---
 
-/// Gibt die Lehrer-IDs zurueck, die in einem bestimmten Zeitslot eines Plans unterrichten
+/// Gibt die Lehrer-IDs zurück, die in einem bestimmten Zeitslot eines Plans unterrichten
 fn get_busy_teacher_ids(
     conn: &Connection,
     schedule_id: i64,
@@ -257,7 +263,7 @@ fn get_busy_teacher_ids(
     Ok(ids)
 }
 
-/// Zaehlt Wochenstunden pro Lehrer in einem Plan
+/// Zählt Wochenstunden pro Lehrer in einem Plan
 fn count_weekly_hours(
     conn: &Connection,
     schedule_id: i64,
@@ -280,11 +286,11 @@ fn count_weekly_hours(
 }
 
 /// Konvertiert ein Datum (YYYY-MM-DD) in den Wochentag (1=Mo, 5=Fr).
-/// Gibt einen Validierungsfehler zurueck fuer Wochenenden.
+/// Gibt einen Validierungsfehler zurück für Wochenenden.
 fn date_to_day_of_week(date: &str) -> Result<i32, AppError> {
     let parsed = NaiveDate::parse_from_str(date, "%Y-%m-%d")
         .map_err(|e| AppError::Validation(format!(
-            "Ungueltiges Datum '{}': {}", date, e
+            "Ungültiges Datum '{}': {}", date, e
         )))?;
     let weekday = parsed.weekday().num_days_from_monday() as i32 + 1;
     if weekday > 5 {
@@ -295,7 +301,7 @@ fn date_to_day_of_week(date: &str) -> Result<i32, AppError> {
     Ok(weekday)
 }
 
-/// Erzeugt eine deutsche Textbegruendung fuer die Kandidatenbewertung
+/// Erzeugt eine deutsche Textbegründung für die Kandidatenbewertung
 fn build_decision_reason(
     teacher_name: &str,
     is_qualified: bool,
@@ -312,7 +318,7 @@ fn build_decision_reason(
     };
 
     format!(
-        "{} ({}, Engagement: {:.0}%, Paedagogik: {:.0}%, {} Vertretungen in 30 Tagen, \
+        "{} ({}, Engagement: {:.0}%, Pädagogik: {:.0}%, {} Vertretungen in 30 Tagen, \
          {} Wochenstunden). Gesamtscore: {:.1}%.",
         teacher_name,
         qual_text,
@@ -432,7 +438,7 @@ mod tests {
 
         let original = create_test_teacher(conn, "Original", 0.8, 0.7);
         let absent = create_test_teacher(conn, "Abwesend", 0.9, 0.9);
-        let available = create_test_teacher(conn, "Verfuegbar", 0.5, 0.5);
+        let available = create_test_teacher(conn, "Verfügbar", 0.5, 0.5);
         let subject = create_test_subject(conn, "Mathe");
         let class = create_test_class(conn, "5a");
         let room = create_test_room(conn, "R101");
@@ -593,9 +599,9 @@ mod tests {
     #[test]
     fn test_decision_reason_is_german_text() {
         let reason = build_decision_reason(
-            "Fr. Mueller", true, 0.8, 3, 0.7, 20, 0.85,
+            "Fr. Müller", true, 0.8, 3, 0.7, 20, 0.85,
         );
-        assert!(reason.contains("Fr. Mueller"));
+        assert!(reason.contains("Fr. Müller"));
         assert!(reason.contains("fachlich qualifiziert"));
         assert!(reason.contains("Gesamtscore"));
     }

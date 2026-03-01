@@ -23,7 +23,7 @@ export function ToastContainer() {
           <button
             onClick={() => removeToast(toast.id)}
             className="text-current opacity-50 hover:opacity-100 text-lg leading-none"
-            aria-label="Schliessen"
+            aria-label="Schließen"
           >
             &times;
           </button>

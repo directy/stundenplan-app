@@ -3,7 +3,7 @@ use crate::error::AppError;
 use crate::models::{Holiday, HolidayImportData};
 
 /// Importiert Feriendaten aus einer JSON-Struktur.
-/// Loescht zuerst alle bestehenden Ferien fuer dasselbe Schuljahr+Bundesland.
+/// Löscht zuerst alle bestehenden Ferien für dasselbe Schuljahr+Bundesland.
 pub fn import_holidays(conn: &Connection, data: &HolidayImportData) -> Result<Vec<Holiday>, AppError> {
     conn.execute(
         "DELETE FROM holidays WHERE school_year = ?1 AND state = ?2",
@@ -14,7 +14,7 @@ pub fn import_holidays(conn: &Connection, data: &HolidayImportData) -> Result<Ve
     for period in &data.holidays {
         if period.start_date > period.end_date {
             return Err(AppError::Validation(format!(
-                "Startdatum {} liegt nach Enddatum {} fuer '{}'",
+                "Startdatum {} liegt nach Enddatum {} für '{}'",
                 period.start_date, period.end_date, period.name
             )));
         }
@@ -76,7 +76,7 @@ pub fn delete_all_holidays(conn: &Connection) -> Result<(), AppError> {
     Ok(())
 }
 
-/// Prueft ob ein bestimmtes Datum in einen Ferienzeitraum faellt.
+/// Prüft ob ein bestimmtes Datum in einen Ferienzeitraum fällt.
 pub fn is_holiday(conn: &Connection, date: &str) -> Result<bool, AppError> {
     let count: i64 = conn.query_row(
         "SELECT COUNT(*) FROM holidays WHERE ?1 BETWEEN start_date AND end_date",

@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import type { ReportEntry } from "../../types/report";
 import type { Subject } from "../../types";
+import { Tooltip } from "../shared/Tooltip";
 
 interface SubjectCoverageProps {
   entries: ReportEntry[];
@@ -82,14 +83,18 @@ export function SubjectCoverage({
   return (
     <div className="bg-white rounded-lg shadow overflow-hidden mb-4">
       <div className="p-4 pb-2">
-        <h3 className="text-sm font-medium text-gray-700">
-          Fach-Abdeckung (Ist vs. Soll)
-          {problemCount > 0 && (
+        <Tooltip content="Vergleich der tatsächlich eingeplanten Stunden (Ist) mit den in der Fach-Definition festgelegten Wochenstunden (Soll) pro Klasse und Fach." position="bottom">
+          <h3 className="text-sm font-medium text-gray-700">
+            Fach-Abdeckung (Ist vs. Soll)
+          </h3>
+        </Tooltip>
+        {problemCount > 0 && (
+          <Tooltip content="Anzahl der Klasse-Fach-Kombinationen, bei denen Ist und Soll nicht übereinstimmen.">
             <span className="ml-2 text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">
               {problemCount} Abweichungen
             </span>
-          )}
-        </h3>
+          </Tooltip>
+        )}
       </div>
       <div className="max-h-[400px] overflow-y-auto">
         <table className="w-full">

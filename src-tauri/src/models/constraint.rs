@@ -10,6 +10,8 @@ pub struct ConstraintRule {
     pub is_active: bool,
     pub parameters: String,
     pub sort_order: i32,
+    pub scope_type: String,
+    pub scope_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -20,6 +22,8 @@ pub struct NewConstraintRule {
     pub weight: Option<f64>,
     pub is_active: Option<bool>,
     pub parameters: Option<String>,
+    pub scope_type: Option<String>,
+    pub scope_id: Option<i64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

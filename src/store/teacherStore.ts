@@ -51,7 +51,7 @@ export const useTeacherStore = create<TeacherState>((set, get) => ({
   deleteTeacher: async (id: number) => {
     await invoke("delete_teacher", { id });
     set({ teachers: get().teachers.filter((t) => t.id !== id) });
-    useToastStore.getState().addToast("success", "Lehrkraft geloescht");
+    useToastStore.getState().addToast("success", "Lehrkraft gelöscht");
   },
 
   getTeacherSubjects: async (teacherId: number) => {

@@ -102,7 +102,7 @@ export function AbsenceView() {
                 }
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value={0}>-- Bitte waehlen --</option>
+                <option value={0}>-- Bitte wählen --</option>
                 {teachers.map((t) => (
                   <option key={t.id} value={t.id}>
                     {t.name}
@@ -161,7 +161,7 @@ export function AbsenceView() {
                 onChange={(e) =>
                   setFormData({ ...formData, note: e.target.value || null })
                 }
-                placeholder="z.B. Voraussichtliche Rueckkehr..."
+                placeholder="z.B. Voraussichtliche Rückkehr..."
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
@@ -197,7 +197,7 @@ export function AbsenceView() {
           }
           className="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
-          <option value="">Alle Lehrkraefte</option>
+          <option value="">Alle Lehrkräfte</option>
           {teachers.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -213,8 +213,8 @@ export function AbsenceView() {
           <p className="text-lg">Keine Abwesenheiten erfasst.</p>
           <p className="text-sm mt-2">
             Erfassen Sie Langzeitabwesenheiten (Krankheit, Mutterschutz, Sabbat
-            etc.), damit der Solver diese Lehrkraefte bei der Planung
-            ausschliesst.
+            etc.), damit der Solver diese Lehrkräfte bei der Planung
+            ausschließt.
           </p>
         </div>
       ) : (
@@ -282,7 +282,7 @@ export function AbsenceView() {
                       onClick={() => handleDelete(absence.id)}
                       className="text-xs text-red-600 hover:text-red-800"
                     >
-                      Loeschen
+                      Löschen
                     </button>
                   </td>
                 </tr>

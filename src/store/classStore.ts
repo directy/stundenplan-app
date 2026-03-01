@@ -48,6 +48,6 @@ export const useClassStore = create<ClassState>((set, get) => ({
   deleteClass: async (id: number) => {
     await invoke("delete_class", { id });
     set({ classes: get().classes.filter((c) => c.id !== id) });
-    useToastStore.getState().addToast("success", "Klasse geloescht");
+    useToastStore.getState().addToast("success", "Klasse gelöscht");
   },
 }));

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ReportEntry } from "../../types/report";
+import { Tooltip } from "../shared/Tooltip";
 
 interface RoomUtilizationProps {
   entries: ReportEntry[];
@@ -42,9 +43,11 @@ export function RoomUtilization({ entries }: RoomUtilizationProps) {
 
   return (
     <div className="bg-white rounded-lg shadow p-4 mb-4">
-      <h3 className="text-sm font-medium text-gray-700 mb-3">
-        Raumnutzung ({rooms.length} Raeume)
-      </h3>
+      <Tooltip content="Anzahl belegter Unterrichtsstunden pro Raum, sortiert nach Auslastung. Der farbige Badge zeigt den durchschnittlichen Qualitätsscore der in diesem Raum stattfindenden Stunden." position="bottom">
+        <h3 className="text-sm font-medium text-gray-700 mb-3">
+          Raumnutzung ({rooms.length} Räume)
+        </h3>
+      </Tooltip>
       <div className="space-y-2">
         {rooms.map((room) => (
           <div key={room.name} className="flex items-center gap-3">

@@ -57,7 +57,7 @@ pub fn get_preference(conn: &Connection, id: i64) -> Result<TeacherPreference, A
                 reason: row.get(5)?,
             })
         },
-    ).map_err(|_| AppError::NotFound(format!("Praeferenz mit ID {} nicht gefunden", id)))
+    ).map_err(|_| AppError::NotFound(format!("Präferenz mit ID {} nicht gefunden", id)))
 }
 
 pub fn update_preference(conn: &Connection, id: i64, pref: &NewTeacherPreference) -> Result<TeacherPreference, AppError> {
@@ -75,7 +75,7 @@ pub fn update_preference(conn: &Connection, id: i64, pref: &NewTeacherPreference
     )?;
 
     if rows == 0 {
-        return Err(AppError::NotFound(format!("Praeferenz mit ID {} nicht gefunden", id)));
+        return Err(AppError::NotFound(format!("Präferenz mit ID {} nicht gefunden", id)));
     }
     get_preference(conn, id)
 }
@@ -83,7 +83,7 @@ pub fn update_preference(conn: &Connection, id: i64, pref: &NewTeacherPreference
 pub fn delete_preference(conn: &Connection, id: i64) -> Result<(), AppError> {
     let rows = conn.execute("DELETE FROM teacher_preferences WHERE id = ?1", [id])?;
     if rows == 0 {
-        return Err(AppError::NotFound(format!("Praeferenz mit ID {} nicht gefunden", id)));
+        return Err(AppError::NotFound(format!("Präferenz mit ID {} nicht gefunden", id)));
     }
     Ok(())
 }
